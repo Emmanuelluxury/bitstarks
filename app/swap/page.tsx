@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
+import WalletModal from '../components/WalletModal';
 import './styles.css';
 
 export default function SwapPage() {
@@ -16,6 +17,14 @@ export default function SwapPage() {
   const [connectedWallet, setConnectedWallet] = useState<string | null>(null);
   const [showTokenModal, setShowTokenModal] = useState(false);
   const [tokenType, setTokenType] = useState<'from' | 'to'>('from');
+  const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
+
+  const stats = [
+    { icon: 'fas fa-bridge', label: 'Bridge Transactions', value: '24', color: 'stat-bridge' },
+    { icon: 'fas fa-exchange-alt', label: 'Swap Transactions', value: '42', color: 'stat-swap' },
+    { icon: 'fas fa-lock', label: 'Lock Transactions', value: '15', color: 'stat-lock' },
+    { icon: 'fas fa-unlock', label: 'Unlock Transactions', value: '8', color: 'stat-unlock' }
+  ];
 
   const networks = [
     { id: 'ethereum', name: 'Ethereum', icon: 'fab fa-ethereum', color: 'network-eth' },
@@ -93,8 +102,17 @@ export default function SwapPage() {
   };
 
   const connectWallet = () => {
-    // Mock wallet connection
-    setConnectedWallet('MetaMask');
+    setIsWalletModalOpen(true);
+  };
+
+  const handleWalletConnect = (type: string) => {
+    console.log('Connecting wallet:', type);
+    setConnectedWallet(type);
+    setIsWalletModalOpen(false);
+  };
+
+  const handleCloseWalletModal = () => {
+    setIsWalletModalOpen(false);
   };
 
   return (
@@ -108,16 +126,22 @@ export default function SwapPage() {
         </div>
         <nav>
           <ul>
-            <li><a href="#" className="active">Swap</a></li>
-            <li><a href="/bridge">Bridge</a></li>
-            <li><a href="/Transactions">Transactions</a></li>
-            <li><a href="/Lock-Unlock">Lock-Unlock</a></li>
+            <li><a href="#" className="active"> <i className='fas fa-arrows-alt'></i> Swap</a></li>
+            <li><a href="/bridge"><i className='fas fa-bridge'></i> Bridge</a></li>
+            <li><a href="/Transactions"><i className='fas fa-history'></i> Transactions</a></li>
+            <li><a href="/Lock-Unlock"><i className='fas fa-unlock'></i> Lock-Unlock</a></li>
           </ul>
         </nav>
         <button className="wallet-connect" onClick={connectWallet}>
           <i className="fas fa-wallet"></i> Connect Wallet
         </button>
       </header>
+
+      <WalletModal
+        isOpen={isWalletModalOpen}
+        onClose={handleCloseWalletModal}
+        onConnectWallet={handleWalletConnect}
+      />
 
       <div className="container">
         <div className="main-content">

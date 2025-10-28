@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import WalletModal from '../components/WalletModal';
 import './styles.css';
 
 export default function BridgePage() {
@@ -8,6 +9,14 @@ export default function BridgePage() {
   const [fromAmount, setFromAmount] = useState('0.1');
   const [toAmount, setToAmount] = useState('0.0995');
   const [walletConnected, setWalletConnected] = useState(false);
+  const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
+
+  const stats = [
+    { icon: 'fas fa-bridge', label: 'Bridge Transactions', value: '24', color: 'stat-bridge' },
+    { icon: 'fas fa-exchange-alt', label: 'Swap Transactions', value: '42', color: 'stat-swap' },
+    { icon: 'fas fa-lock', label: 'Lock Transactions', value: '15', color: 'stat-lock' },
+    { icon: 'fas fa-unlock', label: 'Unlock Transactions', value: '8', color: 'stat-unlock' }
+  ];
 
   const handleDirectionToggle = (newDirection: 'btc-to-stark' | 'stark-to-btc') => {
     setDirection(newDirection);
@@ -23,7 +32,17 @@ export default function BridgePage() {
   };
 
   const handleConnectWallet = () => {
+    setIsWalletModalOpen(true);
+  };
+
+  const handleWalletConnect = (type: string) => {
+    console.log('Connecting wallet:', type);
     setWalletConnected(true);
+    setIsWalletModalOpen(false);
+  };
+
+  const handleCloseWalletModal = () => {
+    setIsWalletModalOpen(false);
   };
 
   const handleBridge = () => {
@@ -60,6 +79,11 @@ export default function BridgePage() {
         </button>
       </header>
 
+      <WalletModal
+        isOpen={isWalletModalOpen}
+        onClose={handleCloseWalletModal}
+        onConnectWallet={handleWalletConnect}
+      />
 
       <div className="main-content">
         <div className="bridge-card">

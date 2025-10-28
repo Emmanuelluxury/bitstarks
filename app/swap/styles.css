@@ -386,6 +386,136 @@
             font-weight: 500;
         }
 
+      .connect-wallet {
+  background: var(--gradient);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 4px 15px rgba(124, 58, 237, 0.3);
+}
+
+.connect-wallet:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(124, 58, 237, 0.4);
+}
+
+.disconnect-wallet {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border: 2px solid #ef4444;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 4px 15px rgba(239, 68, 68, 0.2);
+}
+
+.disconnect-wallet:hover {
+  background: rgba(239, 68, 68, 0.2);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(239, 68, 68, 0.3);
+}
+
+
+.modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(5px);
+  z-index: 2000;
+  justify-content: center;
+  align-items: center;
+}
+
+.modal.active {
+  display: flex;
+}
+
+.modal-content {
+  background: var(--dark);
+  border-radius: 16px;
+  padding: 30px;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  position: relative;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.modal-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: white;
+}
+
+.close-modal {
+  background: none;
+  border: none;
+  color: var(--gray);
+  font-size: 1.5rem;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.close-modal:hover {
+  color: white;
+}
+
+.wallet-options {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 15px;
+}
+
+.wallet-option {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 15px;
+  background: rgba(30, 41, 59, 0.6);
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.wallet-option:hover {
+  background: rgba(124, 58, 237, 0.1);
+  border-color: var(--primary);
+}
+
+.wallet-icon {
+  font-size: 1.5rem;
+  color: var(--primary);
+}
+
+.wallet-name {
+  font-weight: 500;
+  color: white;
+}
+
         .tokens-grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
