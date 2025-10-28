@@ -109,9 +109,9 @@ export default function SwapPage() {
         <nav>
           <ul>
             <li><a href="#" className="active">Swap</a></li>
-            <li><a href="#">Bridge</a></li>
-            <li><a href="#">Transactions</a></li>
-            <li><a href="#">Lock-Unlock</a></li>
+            <li><a href="/bridge">Bridge</a></li>
+            <li><a href="/Transactions">Transactions</a></li>
+            <li><a href="/Lock-Unlock">Lock-Unlock</a></li>
           </ul>
         </nav>
         <button className="wallet-connect" onClick={connectWallet}>
