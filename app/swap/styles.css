@@ -1,0 +1,587 @@
+:root {
+            --primary: #7c3aed;
+            --primary-dark: #6d28d9;
+            --primary-light: rgba(124, 58, 237, 0.15);
+            --secondary: #10b981;
+            --secondary-dark: #059669;
+            --dark: #0f172a;
+            --darker: #0a0f1c;
+            --light: #f9fafb;
+            --lighter: #ffffff;
+            --gray: #94a3b8;
+            --gray-light: rgba(148, 163, 184, 0.2);
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --info: #3b82f6;
+            --bitcoin-orange: #f7931a;
+            --starknet-purple: #8a2be2;
+            --border-radius: 12px;
+            --card-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            --transition: all 0.3s ease;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, var(--darker) 0%, var(--dark) 100%);
+            color: var(--light);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 0;
+            margin-bottom: 30px;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 24px;
+            font-weight: 700;
+        }
+
+        .logo-icon {
+            background: var(--primary);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        nav ul {
+            display: flex;
+            list-style: none;
+            gap: 30px;
+        }
+
+        nav a {
+            color: var(--gray);
+            text-decoration: none;
+            font-weight: 500;
+            transition: var(--transition);
+        }
+
+        nav a:hover, nav a.active {
+            color: var(--light);
+        }
+
+        .wallet-connect {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: var(--border-radius);
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .wallet-connect:hover {
+            background: var(--primary-dark);
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 460px;
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        .swap-card {
+            background: var(--dark);
+            border-radius: var(--border-radius);
+            padding: 30px;
+            box-shadow: var(--card-shadow);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+        }
+
+        .card-title {
+            font-size: 22px;
+            font-weight: 700;
+        }
+
+        .settings-icon {
+            color: var(--gray);
+            font-size: 20px;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .settings-icon:hover {
+            color: var(--light);
+        }
+
+        .swap-container {
+            position: relative;
+        }
+
+        .swap-section {
+            background: var(--darker);
+            border-radius: var(--border-radius);
+            padding: 20px;
+            margin-bottom: 15px;
+            border: 2px solid transparent;
+            transition: var(--transition);
+        }
+
+        .swap-section.active {
+            border-color: var(--primary);
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .section-label {
+            font-size: 14px;
+            color: var(--gray);
+        }
+
+        .balance {
+            font-size: 14px;
+            color: var(--gray);
+        }
+
+        .token-selector {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            padding: 8px 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: var(--border-radius);
+            transition: var(--transition);
+        }
+
+        .token-selector:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .token-icon {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+        }
+
+        .token-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .token-symbol {
+            font-weight: 600;
+        }
+
+        .token-name {
+            font-size: 12px;
+            color: var(--gray);
+        }
+
+        .token-dropdown {
+            color: var(--gray);
+        }
+
+        .amount-input {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .amount-field {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: var(--light);
+            font-size: 24px;
+            font-weight: 600;
+            outline: none;
+        }
+
+        .amount-field::placeholder {
+            color: var(--gray);
+        }
+
+        .usd-value {
+            color: var(--gray);
+            font-size: 14px;
+        }
+
+        .swap-arrow {
+            display: flex;
+            justify-content: center;
+            margin: 10px 0;
+        }
+
+        .swap-arrow-icon {
+            background: var(--darker);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: var(--transition);
+            border: 2px solid var(--gray-light);
+            transform: rotate(90deg);
+        }
+
+        .swap-arrow-icon:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+            transform: rotate(90deg) scale(1.1);
+        }
+
+        .swap-details {
+            background: var(--darker);
+            border-radius: var(--border-radius);
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .detail-label {
+            color: var(--gray);
+            font-size: 14px;
+        }
+
+        .detail-value {
+            font-weight: 500;
+        }
+
+        .slippage-settings {
+            display: flex;
+            gap: 8px;
+            margin-top: 5px;
+        }
+
+        .slippage-option {
+            padding: 5px 10px;
+            background: var(--dark);
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .slippage-option.active {
+            background: var(--primary);
+        }
+
+        .slippage-input {
+            width: 60px;
+            background: var(--dark);
+            border: 1px solid var(--gray-light);
+            border-radius: 6px;
+            padding: 5px;
+            color: var(--light);
+            text-align: center;
+        }
+
+        .swap-button {
+            width: 100%;
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 16px;
+            border-radius: var(--border-radius);
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            margin-top: 20px;
+        }
+
+        .swap-button:hover {
+            background: var(--primary-dark);
+        }
+
+        .swap-button:disabled {
+            background: var(--gray-light);
+            cursor: not-allowed;
+        }
+
+        .network-selector {
+            margin-top: 15px;
+        }
+
+        .network-label {
+            font-size: 14px;
+            color: var(--gray);
+            margin-bottom: 8px;
+        }
+
+        .network-options {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .network-option {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background: var(--dark);
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            transition: var(--transition);
+            border: 1px solid transparent;
+        }
+
+        .network-option.active {
+            border-color: var(--primary);
+            background: var(--primary-light);
+        }
+
+        .network-icon {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+        }
+
+        .network-name {
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .tokens-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .token-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 15px;
+            background: var(--darker);
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .token-item:hover {
+            background: rgba(124, 58, 237, 0.1);
+        }
+
+        .token-item-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+        }
+
+        .token-item-info {
+            flex: 1;
+        }
+
+        .token-item-symbol {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .token-item-name {
+            font-size: 12px;
+            color: var(--gray);
+        }
+
+        .token-item-balance {
+            text-align: right;
+        }
+
+        .token-balance {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .token-usd {
+            font-size: 12px;
+            color: var(--gray);
+        }
+
+        .transaction-history {
+            background: var(--dark);
+            border-radius: var(--border-radius);
+            padding: 30px;
+            box-shadow: var(--card-shadow);
+        }
+
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+        }
+
+        .history-title {
+            font-size: 22px;
+            font-weight: 700;
+        }
+
+        .view-all {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .transaction-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .transaction-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            background: var(--darker);
+            border-radius: var(--border-radius);
+            transition: var(--transition);
+        }
+
+        .transaction-item:hover {
+            background: rgba(124, 58, 237, 0.1);
+        }
+
+        .transaction-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .transaction-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+        }
+
+        .transaction-details h4 {
+            font-size: 16px;
+            margin-bottom: 5px;
+        }
+
+        .transaction-details p {
+            font-size: 14px;
+            color: var(--gray);
+        }
+
+        .transaction-amount {
+            font-weight: 600;
+        }
+
+        .status {
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .status.completed {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--secondary);
+        }
+
+        .status.pending {
+            background: rgba(245, 158, 11, 0.2);
+            color: var(--warning);
+        }
+
+        footer {
+            text-align: center;
+            padding: 30px 0;
+            color: var(--gray);
+            font-size: 14px;
+            border-top: 1px solid var(--gray-light);
+        }
+
+        /* Token colors */
+        .eth { background: #627EEA; }
+        .btc { background: var(--bitcoin-orange); }
+        .usdc { background: #2775CA; }
+        .usdt { background: #26A17B; }
+        .dai { background: #F5AC37; }
+        .matic { background: #8247E5; }
+        .avax { background: #E84142; }
+        .bnb { background: #F3BA2F; }
+        .arb { background: #28A0F0; }
+        .op { background: #FF0420; }
+        .stark { background: var(--starknet-purple); }
+        .sol { background: #00FFA3; color: #000; }
+
+        /* Network colors */
+        .network-eth { background: #627EEA; }
+        .network-btc { background: var(--bitcoin-orange); }
+        .network-polygon { background: #8247E5; }
+        .network-avalanche { background: #E84142; }
+        .network-bsc { background: #F3BA2F; }
+        .network-arbitrum { background: #28A0F0; }
+        .network-optimism { background: #FF0420; }
+        .network-starknet { background: var(--starknet-purple); }
+        .network-solana { background: #00FFA3; color: #000; }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+            
+            .tokens-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            nav ul {
+                display: none;
+            }
+        }
+
