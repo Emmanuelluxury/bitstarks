@@ -6,21 +6,22 @@ import WalletModal from '../components/WalletModal';
 import './styles.css';
 
 export default function BridgePage() {
-   const [direction, setDirection] = useState<'btc-to-stark' | 'stark-to-btc'>('btc-to-stark');
-   const [fromAmount, setFromAmount] = useState('0.1');
-   const [toAmount, setToAmount] = useState('0.0995');
-   const [fromAddress, setFromAddress] = useState('');
-   const [toAddress, setToAddress] = useState('');
-   const [bitcoinWalletConnected, setBitcoinWalletConnected] = useState(false);
-   const [starknetWalletConnected, setStarknetWalletConnected] = useState(false);
-   const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
-   const [currentNetwork, setCurrentNetwork] = useState<'bitcoin' | 'starknet'>('bitcoin');
-   const [bitcoinWalletAddress, setBitcoinWalletAddress] = useState<string | null>(null);
-   const [starknetWalletAddress, setStarknetWalletAddress] = useState<string | null>(null);
-   const [bitcoinBalance, setBitcoinBalance] = useState<number | null>(null);
-   const [starknetBalance, setStarknetBalance] = useState<number | null>(null);
-   const [bridgeFee, setBridgeFee] = useState<number>(0.0005);
-   const [estimatedTime, setEstimatedTime] = useState<string>('~15 minutes');
+    const [direction, setDirection] = useState<'btc-to-stark' | 'stark-to-btc'>('btc-to-stark');
+    const [fromAmount, setFromAmount] = useState('0.1');
+    const [toAmount, setToAmount] = useState('0.0995');
+    const [fromAddress, setFromAddress] = useState('');
+    const [toAddress, setToAddress] = useState('');
+    const [bitcoinWalletConnected, setBitcoinWalletConnected] = useState(false);
+    const [starknetWalletConnected, setStarknetWalletConnected] = useState(false);
+    const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
+    const [currentNetwork, setCurrentNetwork] = useState<'bitcoin' | 'starknet'>('bitcoin');
+    const [bitcoinWalletAddress, setBitcoinWalletAddress] = useState<string | null>(null);
+    const [starknetWalletAddress, setStarknetWalletAddress] = useState<string | null>(null);
+    const [bitcoinBalance, setBitcoinBalance] = useState<number | null>(null);
+    const [starknetBalance, setStarknetBalance] = useState<number | null>(null);
+    const [bridgeFee, setBridgeFee] = useState<number>(0.0005);
+    const [estimatedTime, setEstimatedTime] = useState<string>('~15 minutes');
+    const [networkMode, setNetworkMode] = useState<'mainnet' | 'testnet'>('mainnet');
 
   const stats = [
     { icon: 'fas fa-bridge', label: 'Bridge Transactions', value: '24', color: 'stat-bridge' },
@@ -53,6 +54,7 @@ export default function BridgePage() {
       if (starknetWalletAddress) {
         setFromAddress(starknetWalletAddress);
       }
+      // For Starknet → BTC, always show the connected Bitcoin wallet address if available
       if (bitcoinWalletAddress) {
         setToAddress(bitcoinWalletAddress);
       }
@@ -132,6 +134,10 @@ export default function BridgePage() {
       if (direction === 'btc-to-stark' && address) {
         setFromAddress(address);
       }
+      // Auto-fill the toAddress field when Bitcoin wallet connects (for Starknet→BTC direction)
+      if (direction === 'stark-to-btc' && address) {
+        setToAddress(address);
+      }
     } else {
       setStarknetWalletConnected(true);
       setStarknetWalletAddress(address || null);
@@ -154,51 +160,64 @@ export default function BridgePage() {
   // Function to fetch real Bitcoin balance using BlockCypher API
   const fetchBitcoinBalance = async (address: string) => {
     try {
-      console.log('Fetching real Bitcoin balance for address:', address);
+      console.log(`Fetching real Bitcoin ${networkMode} balance for address:`, address);
 
-      // Use BlockCypher API to get real Bitcoin balance
-      const response = await axios.get(`https://api.blockcypher.com/v1/btc/main/addrs/${address}/balance`);
+      // Choose API endpoint based on network mode
+      const network = networkMode === 'testnet' ? 'test3' : 'main';
+      const response = await axios.get(`https://api.blockcypher.com/v1/btc/${network}/addrs/${address}/balance`);
 
       // BlockCypher returns balance in satoshis, convert to BTC
       const balanceInSatoshis = response.data.final_balance || response.data.balance || 0;
       const balanceInBTC = balanceInSatoshis / 100000000; // 1 BTC = 100,000,000 satoshis
 
       setBitcoinBalance(balanceInBTC);
-      console.log('✅ Real Bitcoin balance fetched:', balanceInBTC, 'BTC for address:', address);
+      console.log(`✅ Real Bitcoin ${networkMode} balance fetched:`, balanceInBTC, 'BTC for address:', address);
     } catch (error: any) {
-      console.error('❌ Failed to fetch Bitcoin balance:', error);
+      console.error(`❌ Failed to fetch Bitcoin ${networkMode} balance:`, error);
 
-      // Fallback: Try alternative API (Blockchain.com)
+      // Fallback: Try alternative API based on network mode
       try {
-        console.log('Trying fallback API (Blockchain.com)...');
-        const fallbackResponse = await axios.get(`https://blockchain.info/q/addressbalance/${address}`);
-        const balanceInSatoshis = parseInt(fallbackResponse.data) || 0;
-        const balanceInBTC = balanceInSatoshis / 100000000;
-
-        setBitcoinBalance(balanceInBTC);
-        console.log('✅ Bitcoin balance fetched via fallback API:', balanceInBTC, 'BTC');
+        console.log('Trying fallback API...');
+        if (networkMode === 'testnet') {
+          // For testnet, try a testnet-specific API
+          const fallbackResponse = await axios.get(`https://api.blockcypher.com/v1/btc/test3/addrs/${address}/balance`);
+          const balanceInSatoshis = fallbackResponse.data.final_balance || fallbackResponse.data.balance || 0;
+          const balanceInBTC = balanceInSatoshis / 100000000;
+          setBitcoinBalance(balanceInBTC);
+          console.log('✅ Bitcoin testnet balance fetched via fallback API:', balanceInBTC, 'BTC');
+        } else {
+          // For mainnet, try Blockchain.com
+          const fallbackResponse = await axios.get(`https://blockchain.info/q/addressbalance/${address}`);
+          const balanceInSatoshis = parseInt(fallbackResponse.data) || 0;
+          const balanceInBTC = balanceInSatoshis / 100000000;
+          setBitcoinBalance(balanceInBTC);
+          console.log('✅ Bitcoin mainnet balance fetched via fallback API:', balanceInBTC, 'BTC');
+        }
       } catch (fallbackError) {
         console.error('❌ Fallback API also failed:', fallbackError);
         // If both APIs fail, set balance to 0 and show error
         setBitcoinBalance(0);
-        console.warn('⚠️ Could not fetch real Bitcoin balance. Using 0 as fallback.');
+        console.warn(`⚠️ Could not fetch real Bitcoin ${networkMode} balance. Using 0 as fallback.`);
       }
     }
   };
 
   // Function to fetch real Starknet balance using multiple APIs for speed
   const fetchStarknetBalance = async (address: string) => {
-    console.log('🚀 Starting parallel Starknet balance fetch for address:', address);
+    console.log(`🚀 Starting parallel Starknet ${networkMode} balance fetch for address:`, address);
 
-    // Start all API calls in parallel for maximum speed
+    // Choose API endpoints based on network mode
+    const isTestnet = networkMode === 'testnet';
     const apiCalls = [
-      // Primary: Starkscan API
-      axios.get(`https://api.starkscan.co/api/v0/accounts/${address}`, { timeout: 5000 })
+      // Primary: Starkscan API (supports both mainnet and testnet)
+      axios.get(`https://api${isTestnet ? '-testnet' : ''}.starkscan.co/api/v0/accounts/${address}`, { timeout: 5000 })
         .then(response => ({ source: 'starkscan', data: response.data }))
         .catch(error => ({ source: 'starkscan', error })),
 
-      // Secondary: BlastAPI RPC
-      axios.post('https://starknet-mainnet.public.blastapi.io/rpc/v0.6', {
+      // Secondary: BlastAPI RPC (different endpoints for mainnet/testnet)
+      axios.post(isTestnet
+        ? 'https://starknet-testnet.public.blastapi.io/rpc/v0.6'
+        : 'https://starknet-mainnet.public.blastapi.io/rpc/v0.6', {
         jsonrpc: '2.0',
         method: 'starknet_getBalance',
         params: [address],
@@ -208,7 +227,9 @@ export default function BridgePage() {
         .catch(error => ({ source: 'blastapi', error })),
 
       // Tertiary: Alternative public RPC endpoint
-      axios.post('https://starknet-mainnet.public.blastapi.io/rpc/v0.6', {
+      axios.post(isTestnet
+        ? 'https://starknet-testnet.public.blastapi.io/rpc/v0.6'
+        : 'https://starknet-mainnet.public.blastapi.io/rpc/v0.6', {
         jsonrpc: '2.0',
         method: 'starknet_call',
         params: [{
@@ -265,7 +286,7 @@ export default function BridgePage() {
 
               if (!isNaN(balance) && (balance > 0 || balance === 0)) {
                 setStarknetBalance(balance);
-                console.log(`✅ Real Starknet balance fetched from ${source}:`, balance, 'ETH for address:', address);
+                console.log(`✅ Real Starknet ${networkMode} balance fetched from ${source}:`, balance, 'ETH for address:', address);
                 return; // Exit after first successful fetch
               }
             } catch (parseError) {
@@ -277,9 +298,9 @@ export default function BridgePage() {
       }
 
       // If we get here, all APIs failed
-      console.error('❌ All Starknet API calls failed');
+      console.error(`❌ All Starknet ${networkMode} API calls failed`);
       setStarknetBalance(0);
-      console.warn('⚠️ Could not fetch real Starknet balance from any API. Using 0 as fallback.');
+      console.warn(`⚠️ Could not fetch real Starknet ${networkMode} balance from any API. Using 0 as fallback.`);
 
     } catch (error) {
       console.error('❌ Critical error in Starknet balance fetching:', error);
@@ -451,7 +472,7 @@ export default function BridgePage() {
                   autoComplete="off"
                   value={toAddress}
                   onChange={(e) => setToAddress(e.target.value)}
-                  readOnly={direction === 'btc-to-stark' ? starknetWalletConnected : bitcoinWalletConnected}
+                  readOnly={direction === 'btc-to-stark' ? starknetWalletConnected : (direction === 'stark-to-btc' ? bitcoinWalletConnected : false)}
                 />
                 <div className="address-input-actions">
                   {(direction === 'btc-to-stark' && !starknetWalletConnected) && (

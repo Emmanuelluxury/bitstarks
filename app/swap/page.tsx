@@ -38,14 +38,36 @@ export default function SwapPage() {
     { id: 'starknet', name: 'Starknet', icon: 'fas fa-code-branch', color: 'network-starknet' }
   ];
 
-  const tokens = [
-    { symbol: 'ETH', name: 'Ethereum', icon: 'fab fa-ethereum', color: 'eth', balance: '2.543', usd: '$8,542.36' },
-    { symbol: 'BTC', name: 'Bitcoin', icon: 'fab fa-bitcoin', color: 'btc', balance: '0.125', usd: '$4,231.50' },
-    { symbol: 'USDC', name: 'USD Coin', icon: 'fas fa-dollar-sign', color: 'usdc', balance: '1,250.00', usd: '$1,250.00' },
-    { symbol: 'USDT', name: 'Tether', icon: 'fas fa-coins', color: 'usdt', balance: '850.50', usd: '$850.50' },
-    { symbol: 'STRK', name: 'Starknet', icon: 'fas fa-code-branch', color: 'stark', balance: '125.75', usd: '$342.15' },
-    { symbol: 'ARB', name: 'Arbitrum', icon: 'fas fa-arrows-spin', color: 'arb', balance: '542.30', usd: '$642.18' }
-  ];
+  // Dynamic tokens based on selected network
+  const getTokensForNetwork = (networkId: string) => {
+    const networkTokenMap = {
+      ethereum: [
+        { symbol: 'ETH', name: 'Ethereum', icon: 'fab fa-ethereum', color: 'eth', balance: '2.543', usd: '$8,542.36' },
+        { symbol: 'USDC', name: 'USD Coin', icon: 'fas fa-dollar-sign', color: 'usdc', balance: '1,250.00', usd: '$1,250.00' },
+        { symbol: 'USDT', name: 'Tether', icon: 'fas fa-coins', color: 'usdt', balance: '850.50', usd: '$850.50' }
+      ],
+      bitcoin: [
+        { symbol: 'BTC', name: 'Bitcoin', icon: 'fab fa-bitcoin', color: 'btc', balance: '0.125', usd: '$4,231.50' }
+      ],
+      polygon: [
+        { symbol: 'MATIC', name: 'Polygon', icon: 'fas fa-layer-group', color: 'matic', balance: '1,500.00', usd: '$1,050.00' },
+        { symbol: 'USDC', name: 'USD Coin', icon: 'fas fa-dollar-sign', color: 'usdc', balance: '750.00', usd: '$750.00' },
+        { symbol: 'USDT', name: 'Tether', icon: 'fas fa-coins', color: 'usdt', balance: '600.00', usd: '$600.00' }
+      ],
+      arbitrum: [
+        { symbol: 'ARB', name: 'Arbitrum', icon: 'fas fa-arrows-spin', color: 'arb', balance: '542.30', usd: '$642.18' },
+        { symbol: 'USDC', name: 'USD Coin', icon: 'fas fa-dollar-sign', color: 'usdc', balance: '800.00', usd: '$800.00' },
+        { symbol: 'USDT', name: 'Tether', icon: 'fas fa-coins', color: 'usdt', balance: '650.00', usd: '$650.00' }
+      ],
+      starknet: [
+        { symbol: 'STRK', name: 'Starknet', icon: 'fas fa-code-branch', color: 'stark', balance: '125.75', usd: '$342.15' },
+        { symbol: 'ETH', name: 'Ethereum', icon: 'fab fa-ethereum', color: 'eth', balance: '0.543', usd: '$1,854.36' }
+      ]
+    };
+    return networkTokenMap[networkId as keyof typeof networkTokenMap] || networkTokenMap.ethereum;
+  };
+
+  const tokens = getTokensForNetwork(selectedNetwork);
 
   const transactions = [
     { id: 1, type: 'ETH to BTC', amount: '+0.025 BTC', time: '2 hours ago', status: 'completed', icon: 'eth' },
@@ -94,13 +116,10 @@ export default function SwapPage() {
 
   const selectToken = (tokenSymbol: string) => {
     if (tokenType === 'from') {
-      if (tokenSymbol !== toToken) {
-        setFromToken(tokenSymbol);
-      }
+      // Uniswap-style: allow same token selection (user can decide)
+      setFromToken(tokenSymbol);
     } else {
-      if (tokenSymbol !== fromToken) {
-        setToToken(tokenSymbol);
-      }
+      setToToken(tokenSymbol);
     }
     setShowTokenModal(false);
   };
@@ -111,10 +130,24 @@ export default function SwapPage() {
   };
 
   const selectNetwork = (networkId: string) => {
-    // For now, just update the selected network
-    // In a real implementation, this would filter tokens based on the selected network
     setSelectedNetwork(networkId);
     setShowNetworkModal(false);
+
+    // Uniswap-style network switching: when you select a network,
+    // it changes the entire swap context to that network's default tokens
+    const networkDefaults = {
+      ethereum: { from: 'ETH', to: 'USDC' },
+      bitcoin: { from: 'BTC', to: 'BTC' }, // For Bitcoin, both will be BTC (handled in UI)
+      polygon: { from: 'MATIC', to: 'USDC' },
+      arbitrum: { from: 'ARB', to: 'USDC' },
+      starknet: { from: 'STRK', to: 'ETH' }
+    };
+
+    const defaults = networkDefaults[networkId as keyof typeof networkDefaults] || networkDefaults.ethereum;
+
+    // Set both tokens to the network's default pair
+    setFromToken(defaults.from);
+    setToToken(defaults.to);
   };
 
   const connectWallet = () => {
@@ -177,17 +210,32 @@ export default function SwapPage() {
               <div className="swap-section active">
                 <div className="section-header">
                   <div className="section-label">You pay</div>
-                  <div className="balance">Balance: 2.543 ETH</div>
+                  <div className="balance">
+                    Balance: {(() => {
+                      const tokenData = tokens.find(t => t.symbol === fromToken);
+                      return tokenData ? tokenData.balance + ' ' + fromToken : '0.000 ' + fromToken;
+                    })()}
+                  </div>
                 </div>
                 <div className="token-selector" onClick={() => openTokenModal('from')}>
-                  <div className={`token-icon ${fromToken.toLowerCase()}`}>
-                    <i className={`fab fa-${fromToken === 'ETH' ? 'ethereum' : fromToken === 'BTC' ? 'bitcoin' : 'dollar-sign'}`}></i>
+                  <div className={`token-icon ${tokens.find(t => t.symbol === fromToken)?.color || 'eth'}`}>
+                    <i className={tokens.find(t => t.symbol === fromToken)?.icon ||
+                      `fab fa-${fromToken === 'ETH' ? 'ethereum' : fromToken === 'BTC' ? 'bitcoin' : 'dollar-sign'}`}></i>
                   </div>
                   <div className="token-info">
                     <div className="token-symbol">{fromToken}</div>
-                    <div className="token-name">{fromToken === 'ETH' ? 'Ethereum' : fromToken === 'BTC' ? 'Bitcoin' : 'USD Coin'}</div>
+                    <div className="token-name">
+                      {tokens.find(t => t.symbol === fromToken)?.name ||
+                       (fromToken === 'ETH' ? 'Ethereum' :
+                        fromToken === 'BTC' ? 'Bitcoin' :
+                        fromToken === 'USDC' ? 'USD Coin' :
+                        fromToken === 'USDT' ? 'Tether' :
+                        fromToken === 'STRK' ? 'Starknet' :
+                        fromToken === 'ARB' ? 'Arbitrum' :
+                        fromToken === 'MATIC' ? 'Polygon' : 'Unknown Token')}
+                    </div>
                   </div>
-                  <div className="token-dropdown">
+                  <div className="token-dropdown" onClick={() => openNetworkModal('from')}>
                     <i className="fas fa-chevron-down"></i>
                   </div>
                 </div>
@@ -206,17 +254,32 @@ export default function SwapPage() {
               <div className="swap-section">
                 <div className="section-header">
                   <div className="section-label">You receive</div>
-                  <div className="balance">Balance: 0.0</div>
+                  <div className="balance">
+                    Balance: {(() => {
+                      const tokenData = tokens.find(t => t.symbol === toToken);
+                      return tokenData ? tokenData.balance + ' ' + toToken : '0.000 ' + toToken;
+                    })()}
+                  </div>
                 </div>
                 <div className="token-selector" onClick={() => openTokenModal('to')}>
-                  <div className={`token-icon ${toToken.toLowerCase()}`}>
-                    <i className={`fab fa-${toToken === 'ETH' ? 'ethereum' : toToken === 'BTC' ? 'bitcoin' : 'dollar-sign'}`}></i>
+                  <div className={`token-icon ${tokens.find(t => t.symbol === toToken)?.color || 'eth'}`}>
+                    <i className={tokens.find(t => t.symbol === toToken)?.icon ||
+                      `fab fa-${toToken === 'ETH' ? 'ethereum' : toToken === 'BTC' ? 'bitcoin' : 'dollar-sign'}`}></i>
                   </div>
                   <div className="token-info">
                     <div className="token-symbol">{toToken}</div>
-                    <div className="token-name">{toToken === 'ETH' ? 'Ethereum' : toToken === 'BTC' ? 'Bitcoin' : 'USD Coin'}</div>
+                    <div className="token-name">
+                      {tokens.find(t => t.symbol === toToken)?.name ||
+                       (toToken === 'ETH' ? 'Ethereum' :
+                        toToken === 'BTC' ? 'Bitcoin' :
+                        toToken === 'USDC' ? 'USD Coin' :
+                        toToken === 'USDT' ? 'Tether' :
+                        toToken === 'STRK' ? 'Starknet' :
+                        toToken === 'ARB' ? 'Arbitrum' :
+                        toToken === 'MATIC' ? 'Polygon' : 'Unknown Token')}
+                    </div>
                   </div>
-                  <div className="token-dropdown">
+                  <div className="token-dropdown" onClick={() => openNetworkModal('to')}>
                     <i className="fas fa-chevron-down"></i>
                   </div>
                 </div>
@@ -354,6 +417,46 @@ export default function SwapPage() {
                   <div className="text-right">
                     <div className="font-semibold text-white">{token.balance}</div>
                     <div className="text-sm text-gray-400">{token.usd}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Network Selection Modal */}
+      {showNetworkModal && (
+        <div className="network-modal-overlay">
+          <div className="network-modal-content">
+            <div className="network-modal-header">
+              <h2 className="network-modal-title">Select Network</h2>
+              <button
+                className="network-modal-close"
+                onClick={() => setShowNetworkModal(false)}
+              >
+                <i className="fas fa-times"></i>
+              </button>
+            </div>
+            <div className="network-options-list">
+              {networks.map((network) => (
+                <div
+                  key={network.id}
+                  onClick={() => selectNetwork(network.id)}
+                  className={`network-option-item ${selectedNetwork === network.id ? 'selected' : ''}`}
+                >
+                  <div className={`network-option-icon ${network.color}`}>
+                    <i className={network.icon}></i>
+                  </div>
+                  <div className="network-option-info">
+                    <div className="network-option-name">{network.name}</div>
+                    <div className="network-option-description">
+                      {network.id === 'ethereum' && 'Layer 1 • High throughput • Proof of Stake'}
+                      {network.id === 'bitcoin' && 'Layer 1 • Secure & decentralized • Proof of Work'}
+                      {network.id === 'polygon' && 'Layer 2 • Low fees • Polygon PoS'}
+                      {network.id === 'arbitrum' && 'Layer 2 • Fast transactions • Optimistic Rollup'}
+                      {network.id === 'starknet' && 'Layer 2 • ZK-rollup scaling • Starknet OS'}
+                    </div>
                   </div>
                 </div>
               ))}
