@@ -12,6 +12,7 @@ export default function LockUnlockPage() {
   const [address, setAddress] = useState('0x1234...5678');
   const [connectedWallet, setConnectedWallet] = useState<string | null>(null);
   const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
+  const [currentNetwork, setCurrentNetwork] = useState<'bitcoin' | 'starknet'>('bitcoin');
 
   const stats = [
     { icon: 'fas fa-bridge', label: 'Bridge Transactions', value: '24', color: 'stat-bridge' },
@@ -93,7 +94,7 @@ export default function LockUnlockPage() {
           <div className="logo-icon">
             <i className="fas fa-lock"></i>
           </div>
-          <span>Bitcoin Lock</span>
+          <span>BitStark Lock-Unlock</span>
         </div>
         <nav>
           <ul>

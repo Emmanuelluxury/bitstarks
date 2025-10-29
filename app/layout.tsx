@@ -3,7 +3,7 @@ import { Inter } from 'next/font/google'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata = {
-  title: 'Bitcoin-StarkNet Bridge | Secure Cross-Chain Transfers',
+  title: 'BitStark',
   description: 'The most secure, fast, and cost-effective way to transfer your Bitcoin assets to StarkNet',
   icons: {
     icon: '/images/image.png',

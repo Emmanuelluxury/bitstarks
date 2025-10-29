@@ -1061,9 +1061,11 @@ footer {
   border-color: var(--primary);
 }
 
-.wallet-icon {
-  font-size: 1.5rem;
-  color: var(--primary);
+.wallet-icon img {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  object-fit: contain;
 }
 
 .wallet-name {

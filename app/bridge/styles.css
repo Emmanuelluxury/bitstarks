@@ -89,7 +89,7 @@
             background: var(--primary);
             color: white;
             border: none;
-            padding: 10px 20px;
+            padding: 15px 7px;
             border-radius: var(--border-radius);
             font-weight: 600;
             cursor: pointer;
@@ -196,16 +196,115 @@
             font-size: 14px;
         }
 
+        /* Bridge Form Styles */
+        .bridge-form {
+            margin-bottom: 25px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: var(--light);
+            font-size: 14px;
+        }
+
+        .address-input-container {
+            position: relative;
+        }
+
+        .address-input-container input {
+            width: 100%;
+            background: var(--darker);
+            border: 2px solid var(--gray-light);
+            border-radius: var(--border-radius);
+            padding: 15px 45px 15px 15px;
+            color: var(--light);
+            font-size: 16px;
+            transition: var(--transition);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .address-input-container input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+        }
+
+        .address-input-container input::placeholder {
+            color: var(--gray);
+            opacity: 0.7;
+        }
+
+        .address-input-actions {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            gap: 5px;
+        }
+
+        .address-info {
+            margin-top: 8px;
+        }
+
+        .address-hint {
+            color: var(--gray);
+            font-size: 12px;
+            display: block;
+        }
+
+        .address-validation {
+            margin-top: 5px;
+            font-size: 12px;
+            min-height: 16px;
+        }
+
+        .address-validation.valid {
+            color: var(--secondary);
+        }
+
+        .address-validation.invalid {
+            color: var(--danger);
+        }
+
+        /* Enhanced Amount Input Styles */
         .amount-input {
             margin-bottom: 25px;
+            background: rgba(30, 41, 59, 0.6);
+            border-radius: var(--border-radius);
+            padding: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: var(--transition);
+        }
+
+        .amount-input:hover {
+            border-color: rgba(124, 58, 237, 0.3);
+            box-shadow: 0 5px 15px rgba(124, 58, 237, 0.1);
         }
 
         .input-label {
             display: flex;
             justify-content: space-between;
-            margin-bottom: 10px;
+            margin-bottom: 15px;
             font-size: 14px;
             color: var(--gray);
+            font-weight: 500;
+        }
+
+        .input-label span:first-child {
+            color: var(--light);
+            font-weight: 600;
+        }
+
+        .input-label span:last-child {
+            color: var(--secondary);
+            font-weight: 600;
         }
 
         .input-container {
@@ -215,38 +314,56 @@
         .amount-field {
             width: 100%;
             background: var(--darker);
-            border: 2px solid var(--gray-light);
+            border: 2px solid rgba(148, 163, 184, 0.2);
             border-radius: var(--border-radius);
-            padding: 15px;
+            padding: 18px 80px 18px 18px;
             color: var(--light);
-            font-size: 18px;
+            font-size: 20px;
+            font-weight: 600;
             transition: var(--transition);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
 
         .amount-field:focus {
             outline: none;
             border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.15);
+            background: rgba(30, 41, 59, 0.8);
+        }
+
+        .amount-field::placeholder {
+            color: var(--gray);
+            opacity: 0.6;
+            font-weight: 400;
         }
 
         .max-button {
             position: absolute;
-            right: 10px;
+            right: 12px;
             top: 50%;
             transform: translateY(-50%);
-            background: var(--primary-light);
-            color: var(--primary);
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
             border: none;
-            padding: 5px 10px;
-            border-radius: 6px;
+            padding: 8px 16px;
+            border-radius: 8px;
             font-size: 12px;
-            font-weight: 600;
+            font-weight: 700;
             cursor: pointer;
             transition: var(--transition);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            box-shadow: 0 2px 8px rgba(124, 58, 237, 0.3);
         }
 
         .max-button:hover {
-            background: var(--primary);
-            color: white;
+            background: linear-gradient(135deg, var(--primary-dark), var(--primary));
+            transform: translateY(-50%) scale(1.05);
+            box-shadow: 0 4px 12px rgba(124, 58, 237, 0.4);
+        }
+
+        .max-button:active {
+            transform: translateY(-50%) scale(0.95);
         }
 
         .swap-button {

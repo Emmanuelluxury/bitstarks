@@ -18,6 +18,7 @@ export default function SwapPage() {
   const [showTokenModal, setShowTokenModal] = useState(false);
   const [tokenType, setTokenType] = useState<'from' | 'to'>('from');
   const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
+  const [currentNetwork, setCurrentNetwork] = useState<'bitcoin' | 'starknet'>('bitcoin');
 
   const stats = [
     { icon: 'fas fa-bridge', label: 'Bridge Transactions', value: '24', color: 'stat-bridge' },
@@ -122,7 +123,7 @@ export default function SwapPage() {
           <div className="logo-icon">
             <i className="fas fa-exchange-alt"></i>
           </div>
-          <span>MultiChain Swap</span>
+          <span>BitStark Swap</span>
         </div>
         <nav>
           <ul>

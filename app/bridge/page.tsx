@@ -5,11 +5,15 @@ import WalletModal from '../components/WalletModal';
 import './styles.css';
 
 export default function BridgePage() {
-  const [direction, setDirection] = useState<'btc-to-stark' | 'stark-to-btc'>('btc-to-stark');
-  const [fromAmount, setFromAmount] = useState('0.1');
-  const [toAmount, setToAmount] = useState('0.0995');
-  const [walletConnected, setWalletConnected] = useState(false);
-  const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
+   const [direction, setDirection] = useState<'btc-to-stark' | 'stark-to-btc'>('btc-to-stark');
+   const [fromAmount, setFromAmount] = useState('0.1');
+   const [toAmount, setToAmount] = useState('0.0995');
+   const [fromAddress, setFromAddress] = useState('');
+   const [toAddress, setToAddress] = useState('');
+   const [bitcoinWalletConnected, setBitcoinWalletConnected] = useState(false);
+   const [starknetWalletConnected, setStarknetWalletConnected] = useState(false);
+   const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
+   const [currentNetwork, setCurrentNetwork] = useState<'bitcoin' | 'starknet'>('bitcoin');
 
   const stats = [
     { icon: 'fas fa-bridge', label: 'Bridge Transactions', value: '24', color: 'stat-bridge' },
@@ -31,13 +35,18 @@ export default function BridgePage() {
     setToAmount('0.2498'); // Assuming 0.99 fee
   };
 
-  const handleConnectWallet = () => {
+  const handleConnectWallet = (network: 'bitcoin' | 'starknet') => {
+    setCurrentNetwork(network);
     setIsWalletModalOpen(true);
   };
 
   const handleWalletConnect = (type: string) => {
     console.log('Connecting wallet:', type);
-    setWalletConnected(true);
+    if (currentNetwork === 'bitcoin') {
+      setBitcoinWalletConnected(true);
+    } else {
+      setStarknetWalletConnected(true);
+    }
     setIsWalletModalOpen(false);
   };
 
@@ -46,8 +55,12 @@ export default function BridgePage() {
   };
 
   const handleBridge = () => {
-    if (!walletConnected) {
-      handleConnectWallet();
+    if (!bitcoinWalletConnected || !starknetWalletConnected) {
+      if (!bitcoinWalletConnected) {
+        handleConnectWallet('bitcoin');
+      } else if (!starknetWalletConnected) {
+        handleConnectWallet('starknet');
+      }
       return;
     }
     // Bridge logic here
@@ -61,7 +74,7 @@ export default function BridgePage() {
                 <div className="logo-icon">
                     <i className="fas fa-bridge"></i>
                 </div>
-                <span>Bitcoin-Starknet Bridge</span>
+                <span>BitStark Bridge</span>
             </div>
         <nav>
           <ul>
@@ -71,11 +84,11 @@ export default function BridgePage() {
             <li><a href="/Lock-Unlock"><i className="fas fa-unlock"></i> Lock-Unlock</a></li>
           </ul>
         </nav>
-        <button className={`wallet-connect ${walletConnected ? 'connected' : ''}`} onClick={handleConnectWallet}>
-          <i className={`fas ${walletConnected ? 'fa-check' : 'fa-wallet'}`}></i> {walletConnected ? 'Connected' : 'Connect Wallet'}
+        <button className={`wallet-connect ${bitcoinWalletConnected ? 'connected' : ''}`} onClick={() => handleConnectWallet('bitcoin')}>
+          <i className={`fas ${bitcoinWalletConnected ? 'fa-check' : 'fa-wallet'}`}></i> {bitcoinWalletConnected ? 'Bitcoin Connected' : 'Connect Bitcoin Wallet'}
         </button>
-        <button className={`wallet-connect ${walletConnected ? 'connected' : ''}`} onClick={handleConnectWallet}>
-                <i className="`fas ${walletConnected ? 'fa-check' : 'fa-wallet'}"></i> {walletConnected ? 'Connected' : 'Connect Wallet'}
+        <button className={`wallet-connect ${starknetWalletConnected ? 'connected' : ''}`} onClick={() => handleConnectWallet('starknet')}>
+          <i className={`fas ${starknetWalletConnected ? 'fa-check' : 'fa-wallet'}`}></i> {starknetWalletConnected ? 'Starknet Connected' : 'Connect Starknet Wallet'}
         </button>
       </header>
 
@@ -83,6 +96,7 @@ export default function BridgePage() {
         isOpen={isWalletModalOpen}
         onClose={handleCloseWalletModal}
         onConnectWallet={handleWalletConnect}
+        network={currentNetwork}
       />
 
       <div className="main-content">
@@ -122,46 +136,70 @@ export default function BridgePage() {
             </div>
           </div>
 
-          <div className="amount-input">
-            <div className="input-label">
-              <span>You send</span>
-              <span>Max: 0.2543 BTC</span>
+          <form className="bridge-form" id="bridgeForm">
+            <div className="form-group">
+              <label htmlFor="fromAddress">From Address</label>
+              <div className="address-input-container">
+                <input
+                  type="text"
+                  id="fromAddress"
+                  placeholder="Enter your wallet address or select from connected wallet"
+                  autoComplete="off"
+                  value={fromAddress}
+                  onChange={(e) => setFromAddress(e.target.value)}
+                />
+                <div className="address-input-actions">
+                </div>
+              </div>
             </div>
-            <div className="input-container">
-              <input
-                type="number"
-                className="amount-field"
-                placeholder="0.0"
-                value={fromAmount}
-                onChange={(e) => setFromAmount(e.target.value)}
-              />
-              <button className="max-button" onClick={handleMax}>MAX</button>
-            </div>
-          </div>
 
-          <div className="swap-button">
+            <div className="swap-button">
             <div className="swap-icon" onClick={handleSwap}>
               <i className="fas fa-arrow-down-arrow-up"></i>
             </div>
           </div>
 
-          <div className="amount-input">
-            <div className="input-label">
-              <span>You receive</span>
-              <span>≈ $3,842.50</span>
+            <div className="form-group">
+              <label htmlFor="toAddress">To Address</label>
+              <div className="address-input-container">
+                <input
+                  type="text"
+                  id="toAddress"
+                  placeholder="Enter your Starknet address or use connected wallet"
+                  autoComplete="off"
+                  value={toAddress}
+                  onChange={(e) => setToAddress(e.target.value)}
+                />
+                <div className="address-input-actions">
+                </div>
+              </div>
+              <div className="address-info">
+                <small className="address-hint" id="toAddressHint">
+                  Enter a valid StarkNet address for Bitcoin→Starknet transfers
+                </small>
+                <div className="address-validation" id="toAddressValidation"></div>
+              </div>
             </div>
-            <div className="input-container">
-              <input
-                type="number"
-                className="amount-field"
-                placeholder="0.0"
-                value={toAmount}
-                readOnly
-              />
-            </div>
-          </div>
 
-          <button className="bridge-button" onClick={handleBridge} disabled={!walletConnected}>
+            <div className="amount-input">
+              <div className="input-label">
+                <span>You send</span>
+                <span>Max: 0.2543 BTC</span>
+              </div>
+              <div className="input-container">
+                <input
+                  type="number"
+                  className="amount-field"
+                  placeholder="0.0"
+                  value={fromAmount}
+                  onChange={(e) => setFromAmount(e.target.value)}
+                />
+                <button className="max-button" onClick={handleMax}>MAX</button>
+              </div>
+            </div>
+          </form>
+
+          <button className="bridge-button" onClick={handleBridge} disabled={!bitcoinWalletConnected || !starknetWalletConnected}>
             Bridge Now
           </button>
 
@@ -240,7 +278,7 @@ export default function BridgePage() {
       </div>
 
       <footer>
-        <p>© 2025 CrossChain Bridge. All rights reserved. Use at your own risk.</p>
+        <p>© 2025 Bitcoin-Starknet Bridge. All rights reserved. | Security Audit Passed | v2.1.4</p>
       </footer>
     </div>
   );

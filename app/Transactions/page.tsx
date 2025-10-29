@@ -163,7 +163,7 @@ export default function TransactionsPage() {
           <div className="logo-icon">
             <i className="fas fa-exchange-alt"></i>
           </div>
-          <span>CrossChain Dashboard</span>
+          <span>BitStark Transactions</span>
         </div>
         <nav>
           <ul>
