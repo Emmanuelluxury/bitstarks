@@ -11,6 +11,7 @@ export default function LockUnlockPage() {
   const [amount, setAmount] = useState('0.1');
   const [address, setAddress] = useState('0x1234...5678');
   const [connectedWallet, setConnectedWallet] = useState<string | null>(null);
+  const [connectedAddress, setConnectedAddress] = useState<string | null>(null);
   const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
   const [currentNetwork, setCurrentNetwork] = useState<'bitcoin' | 'starknet'>('bitcoin');
 
@@ -68,9 +69,10 @@ export default function LockUnlockPage() {
     setIsWalletModalOpen(true);
   };
 
-  const handleWalletConnect = (type: string) => {
-    console.log('Connecting wallet:', type);
+  const handleWalletConnect = (type: string, address?: string) => {
+    console.log('Connecting wallet:', type, 'Address:', address);
     setConnectedWallet(type);
+    setConnectedAddress(address || null);
     setIsWalletModalOpen(false);
   };
 
@@ -105,7 +107,10 @@ export default function LockUnlockPage() {
           </ul>
         </nav>
         <button className="wallet-connect" onClick={connectWallet}>
-          <i className="fas fa-wallet"></i> Connect Wallet
+          <i className="fas fa-wallet"></i>
+          {connectedWallet && connectedAddress
+            ? `${connectedAddress.substring(0, 6)}...${connectedAddress.substring(connectedAddress.length - 4)}`
+            : 'Connect Wallet'}
         </button>
       </header>
 

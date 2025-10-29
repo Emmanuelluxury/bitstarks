@@ -15,10 +15,13 @@ export default function SwapPage() {
   const [slippage, setSlippage] = useState('1.0');
   const [activeSlippage, setActiveSlippage] = useState('1');
   const [connectedWallet, setConnectedWallet] = useState<string | null>(null);
+  const [connectedAddress, setConnectedAddress] = useState<string | null>(null);
   const [showTokenModal, setShowTokenModal] = useState(false);
   const [tokenType, setTokenType] = useState<'from' | 'to'>('from');
   const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
   const [currentNetwork, setCurrentNetwork] = useState<'bitcoin' | 'starknet'>('bitcoin');
+  const [showNetworkModal, setShowNetworkModal] = useState(false);
+  const [networkType, setNetworkType] = useState<'from' | 'to'>('from');
 
   const stats = [
     { icon: 'fas fa-bridge', label: 'Bridge Transactions', value: '24', color: 'stat-bridge' },
@@ -102,13 +105,26 @@ export default function SwapPage() {
     setShowTokenModal(false);
   };
 
+  const openNetworkModal = (type: 'from' | 'to') => {
+    setNetworkType(type);
+    setShowNetworkModal(true);
+  };
+
+  const selectNetwork = (networkId: string) => {
+    // For now, just update the selected network
+    // In a real implementation, this would filter tokens based on the selected network
+    setSelectedNetwork(networkId);
+    setShowNetworkModal(false);
+  };
+
   const connectWallet = () => {
     setIsWalletModalOpen(true);
   };
 
-  const handleWalletConnect = (type: string) => {
-    console.log('Connecting wallet:', type);
+  const handleWalletConnect = (type: string, address?: string) => {
+    console.log('Connecting wallet:', type, 'Address:', address);
     setConnectedWallet(type);
+    setConnectedAddress(address || null);
     setIsWalletModalOpen(false);
   };
 
@@ -134,7 +150,10 @@ export default function SwapPage() {
           </ul>
         </nav>
         <button className="wallet-connect" onClick={connectWallet}>
-          <i className="fas fa-wallet"></i> Connect Wallet
+          <i className="fas fa-wallet"></i>
+          {connectedWallet && connectedAddress
+            ? `${connectedAddress.substring(0, 6)}...${connectedAddress.substring(connectedAddress.length - 4)}`
+            : 'Connect Wallet'}
         </button>
       </header>
 
@@ -301,7 +320,7 @@ export default function SwapPage() {
         </div>
 
         <footer>
-          <p>© 2025 MultiChain Swap. All rights reserved. Use at your own risk.</p>
+          <p>© 2025 BitStark Swap. All rights reserved. | Security Audit Passed | v2.1.4</p>
         </footer>
       </div>
 
