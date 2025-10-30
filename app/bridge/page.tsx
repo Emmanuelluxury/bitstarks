@@ -111,9 +111,14 @@ export default function BridgePage() {
   };
 
   const handleMax = () => {
-    setFromAmount('0.2543');
-    setToAmount('0.2498'); // Assuming 0.99 fee
-    updateBridgeMetrics(direction, '0.2543');
+    const maxAmount = direction === 'btc-to-stark'
+      ? (bitcoinWalletConnected && bitcoinBalance !== null ? bitcoinBalance : 0.0020)
+      : (starknetWalletConnected && starknetBalance !== null ? starknetBalance : 0.0030);
+    const maxAmountStr = maxAmount.toFixed(4);
+    setFromAmount(maxAmountStr);
+    const toAmount = maxAmount - bridgeFee;
+    setToAmount(toAmount.toFixed(4));
+    updateBridgeMetrics(direction, maxAmountStr);
   };
 
   const handleConnectWallet = (network: 'bitcoin' | 'starknet') => {
@@ -324,7 +329,6 @@ export default function BridgePage() {
     // Bridge logic here
     console.log('Bridging:', fromAmount);
   };
-
   return (
     <div className="container">
       <header>
@@ -509,7 +513,15 @@ export default function BridgePage() {
             <div className="amount-input">
               <div className="input-label">
                 <span>You send</span>
-                <span>Max: 0.2543 BTC</span>
+                <span>
+                  Max: {direction === 'btc-to-stark'
+                    ? (bitcoinWalletConnected && bitcoinBalance !== null
+                        ? `${bitcoinBalance.toFixed(4)} BTC`
+                        : '0.0020 BTC')
+                    : (starknetWalletConnected && starknetBalance !== null
+                        ? `${starknetBalance.toFixed(4)} STAK`
+                        : '0.0030 STAK')}
+                </span>
               </div>
               <div className="input-container">
                 <input

@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { getAddress, AddressPurpose, BitcoinNetworkType } from '@sats-connect/core';
+import detectEthereumProvider from '@metamask/detect-provider';
+import { createWalletClient, custom } from 'viem';
 
 // Extend window interface for wallet extensions
 declare global {
@@ -29,6 +31,42 @@ interface WalletModalProps {
 
 export default function WalletModal({ isOpen, onClose, onConnectWallet, network }: WalletModalProps) {
   const [connecting, setConnecting] = useState<string | null>(null);
+
+  const isValidEthereumAddress = (address: string): boolean => {
+    return /^0x[a-fA-F0-9]{40}$/.test(address);
+  };
+
+  const setupMetaMaskEventListeners = () => {
+    if (!window.ethereum) return;
+
+    // Handle account changes
+    const handleAccountsChanged = (accounts: string[]) => {
+      console.log('🔄 Accounts changed:', accounts);
+      if (accounts && accounts.length > 0) {
+        onConnectWallet('metamask', accounts[0]);
+      } else {
+        // User disconnected all accounts
+        console.warn('⚠️ MetaMask disconnected');
+      }
+    };
+
+    // Handle chain changes
+    const handleChainChanged = (chainId: string) => {
+      console.log('🔄 Chain changed:', chainId);
+      // Reload to ensure UI consistency
+      window.location.reload();
+    };
+
+    // Handle disconnect
+    const handleDisconnect = (error: any) => {
+      console.log('🔌 MetaMask disconnected:', error);
+    };
+
+    // Add event listeners
+    (window.ethereum as any).on('accountsChanged', handleAccountsChanged);
+    (window.ethereum as any).on('chainChanged', handleChainChanged);
+    (window.ethereum as any).on('disconnect', handleDisconnect);
+  };
 
   const allWallets = [
     {
@@ -97,12 +135,85 @@ export default function WalletModal({ isOpen, onClose, onConnectWallet, network 
           break;
 
         case 'metamask':
-          if (typeof window !== 'undefined' && window.ethereum) {
-            const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+          try {
+            console.log('🔍 Starting MetaMask connection...');
+
+            // Check if we're in a browser environment
+            if (typeof window === 'undefined') {
+              throw new Error('Browser environment not available');
+            }
+
+            // Step 1: Use detectEthereumProvider to properly detect MetaMask
+            console.log('🔍 Detecting MetaMask provider...');
+            const metaMaskProvider = await detectEthereumProvider();
+
+            if (!metaMaskProvider) {
+              console.error('❌ MetaMask not detected');
+              window.open('https://metamask.io/download/', '_blank');
+              throw new Error('MetaMask not detected. Please install MetaMask and refresh the page.');
+            }
+
+            // Step 2: Verify it's actually MetaMask
+            if (!metaMaskProvider.isMetaMask) {
+              console.error('❌ Provider found but isMetaMask is false:', metaMaskProvider);
+              throw new Error('Detected provider is not MetaMask. Please ensure MetaMask is your active Ethereum wallet.');
+            }
+
+            console.log('✅ MetaMask provider detected:', metaMaskProvider);
+
+            // Step 3: Request accounts from MetaMask
+            console.log('🔓 Requesting account access from MetaMask...');
+
+            const accounts = await (metaMaskProvider as any).request({
+              method: 'eth_requestAccounts'
+            });
+
+            console.log('📋 Accounts received:', accounts);
+
+            if (!accounts || !Array.isArray(accounts) || accounts.length === 0) {
+              throw new Error('No accounts received from MetaMask. Please unlock MetaMask and select an account.');
+            }
+
             const address = accounts[0];
+
+            // Step 4: Validate the address
+            if (!address || typeof address !== 'string') {
+              throw new Error('Invalid address received from MetaMask');
+            }
+
+            if (!isValidEthereumAddress(address)) {
+              throw new Error('Received address is not a valid Ethereum address');
+            }
+
+            console.log('✅ Successfully connected to MetaMask with address:', address);
+
+            // Step 5: Set up event listeners for account/chain changes
+            setupMetaMaskEventListeners();
+
             onConnectWallet(walletType, address);
-          } else {
-            throw new Error('MetaMask not found');
+
+          } catch (error: any) {
+            console.error('💥 MetaMask connection failed:', error);
+
+            // Handle specific MetaMask error codes
+            if (error.code === 4001) {
+              throw new Error('Connection rejected. Please click "Connect" in MetaMask.');
+            } else if (error.code === -32002) {
+              throw new Error('Connection request already pending. Please check MetaMask for pending requests.');
+            } else if (error.code === 4100) {
+              throw new Error('MetaMask is not authorized. Please unlock MetaMask and try again.');
+            } else if (error.message) {
+              // Check for common error messages
+              if (error.message.includes('User denied')) {
+                throw new Error('Connection denied by user. Please approve the connection in MetaMask.');
+              } else if (error.message.includes('MetaMask is not installed')) {
+                throw new Error('MetaMask not found. Please install MetaMask browser extension.');
+              } else {
+                throw new Error(`MetaMask connection failed: ${error.message}`);
+              }
+            } else {
+              throw new Error('Failed to connect to MetaMask. Please ensure MetaMask is installed and unlocked.');
+            }
           }
           break;
 
@@ -221,12 +332,80 @@ export default function WalletModal({ isOpen, onClose, onConnectWallet, network 
           break;
 
         case 'phantom':
-          if (typeof window !== 'undefined' && window.solana && window.solana.isPhantom) {
+          try {
+            console.log('👻 Starting Phantom wallet connection...');
+
+            // Check if we're in a browser environment
+            if (typeof window === 'undefined') {
+              throw new Error('Browser environment not available');
+            }
+
+            // Check if Phantom is installed
+            if (!window.solana) {
+              console.error('❌ window.solana not found');
+              window.open('https://phantom.app/download', '_blank');
+              throw new Error('Phantom wallet not detected. Please install Phantom browser extension and refresh the page.');
+            }
+
+            if (!window.solana.isPhantom) {
+              console.error('❌ Solana object found but not Phantom');
+              throw new Error('Detected Solana provider is not Phantom wallet.');
+            }
+
+            console.log('✅ Phantom wallet detected');
+
+            // Connect to Phantom (like in your example)
+            console.log('🔓 Requesting connection to Phantom...');
             const response = await window.solana.connect();
+
+            console.log('📋 Connection response:', response);
+
+            if (!response || !response.publicKey) {
+              throw new Error('No public key received from Phantom wallet');
+            }
+
             const address = response.publicKey.toString();
+
+            // Basic validation
+            if (!address || typeof address !== 'string') {
+              throw new Error('Invalid address received from Phantom');
+            }
+
+            console.log('✅ Successfully connected to Phantom:', address);
             onConnectWallet(walletType, address);
-          } else {
-            throw new Error('Phantom wallet not found');
+
+            // Set up event listeners
+            window.solana.on('connect', (publicKey: any) => {
+              console.log('🔗 Phantom connected:', publicKey?.toString());
+              if (publicKey) {
+                onConnectWallet(walletType, publicKey.toString());
+              }
+            });
+
+            window.solana.on('disconnect', () => {
+              console.warn('⚠️ Phantom disconnected');
+            });
+
+            window.solana.on('accountChanged', (publicKey: any) => {
+              console.log('🔄 Phantom account changed:', publicKey?.toString());
+              if (publicKey) {
+                onConnectWallet(walletType, publicKey.toString());
+              }
+            });
+
+          } catch (error: any) {
+            console.error('💥 Phantom connection failed:', error);
+
+            // Handle specific Phantom error codes
+            if (error.code === 4001) {
+              throw new Error('Connection rejected by user. Please click "Connect" in Phantom.');
+            } else if (error.message && error.message.includes('User rejected')) {
+              throw new Error('Connection rejected by user. Please approve the connection in Phantom.');
+            } else if (error.message) {
+              throw new Error(`Phantom connection failed: ${error.message}`);
+            } else {
+              throw new Error('Failed to connect to Phantom. Please ensure Phantom is installed and unlocked.');
+            }
           }
           break;
 
