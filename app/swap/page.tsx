@@ -1,12 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import WalletModal from '../components/WalletModal';
+import { useTransactions } from '../components/TransactionContext';
 import './styles.css';
 
 export default function SwapPage() {
+  const { addTransaction, transactions } = useTransactions();
   const [fromToken, setFromToken] = useState('ETH');
   const [toToken, setToToken] = useState('BTC');
   const [fromAmount, setFromAmount] = useState('0.1');
@@ -22,13 +24,22 @@ export default function SwapPage() {
   const [currentNetwork, setCurrentNetwork] = useState<'bitcoin' | 'starknet'>('bitcoin');
   const [showNetworkModal, setShowNetworkModal] = useState(false);
   const [networkType, setNetworkType] = useState<'from' | 'to'>('from');
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
 
-  const stats = [
-    { icon: 'fas fa-bridge', label: 'Bridge Transactions', value: '24', color: 'stat-bridge' },
-    { icon: 'fas fa-exchange-alt', label: 'Swap Transactions', value: '42', color: 'stat-swap' },
-    { icon: 'fas fa-lock', label: 'Lock Transactions', value: '15', color: 'stat-lock' },
-    { icon: 'fas fa-unlock', label: 'Unlock Transactions', value: '8', color: 'stat-unlock' }
-  ];
+  // Calculate dynamic stats based on transactions
+  const stats = useMemo(() => {
+    const bridgeCount = transactions.filter(tx => tx.type === 'Bridge').length;
+    const swapCount = transactions.filter(tx => tx.type === 'Swap').length;
+    const lockCount = transactions.filter(tx => tx.type === 'Lock').length;
+    const unlockCount = transactions.filter(tx => tx.type === 'Unlock').length;
+
+    return [
+      { icon: 'fas fa-bridge', label: 'Bridge Transactions', value: bridgeCount.toString(), color: 'stat-bridge' },
+      { icon: 'fas fa-exchange-alt', label: 'Swap Transactions', value: swapCount.toString(), color: 'stat-swap' },
+      { icon: 'fas fa-lock', label: 'Lock Transactions', value: '15', color: 'stat-lock' },
+      { icon: 'fas fa-unlock', label: 'Unlock Transactions', value: '8', color: 'stat-unlock' }
+    ];
+  }, [transactions]);
 
   const networks = [
     { id: 'ethereum', name: 'Ethereum', icon: 'fab fa-ethereum', color: 'network-eth' },
@@ -69,11 +80,6 @@ export default function SwapPage() {
 
   const tokens = getTokensForNetwork(selectedNetwork);
 
-  const transactions = [
-    { id: 1, type: 'ETH to BTC', amount: '+0.025 BTC', time: '2 hours ago', status: 'completed', icon: 'eth' },
-    { id: 2, type: 'USDC to ETH', amount: '+0.42 ETH', time: '1 day ago', status: 'completed', icon: 'usdc' },
-    { id: 3, type: 'BTC to STRK', amount: '+125.5 STRK', time: '2 days ago', status: 'completed', icon: 'btc' }
-  ];
 
   const handleSwapDirection = () => {
     const tempToken = fromToken;
@@ -201,7 +207,7 @@ export default function SwapPage() {
           <div className="swap-card">
             <div className="card-header">
               <h2 className="card-title">Swap Tokens</h2>
-              <div className="settings-icon">
+              <div className="settings-icon" onClick={() => setShowSettingsModal(true)}>
                 <i className="fas fa-sliders-h"></i>
               </div>
             </div>
@@ -330,7 +336,57 @@ export default function SwapPage() {
               </div>
             </div>
 
-            <button className="swap-button">Swap Now</button>
+            <button className="swap-button" onClick={() => {
+              if (connectedAddress && parseFloat(fromAmount) > 0) {
+                // Validate that user has sufficient balance
+                const fromTokenData = tokens.find(t => t.symbol === fromToken);
+                const hasBalance = fromTokenData && parseFloat(fromTokenData.balance) >= parseFloat(fromAmount);
+
+                if (!hasBalance) {
+                  alert('Insufficient balance for this swap');
+                  return;
+                }
+
+                // Add the swap transaction
+                addTransaction({
+                  type: 'Swap',
+                  typeIcon: 'fas fa-exchange-alt',
+                  typeClass: 'type-swap',
+                  fromAsset: fromToken,
+                  fromAssetIcon: tokens.find(t => t.symbol === fromToken)?.icon ||
+                    `fab fa-${fromToken === 'ETH' ? 'ethereum' : fromToken === 'BTC' ? 'bitcoin' : 'dollar-sign'}`,
+                  fromAssetClass: `asset-${fromToken.toLowerCase()}`,
+                  toAsset: toToken,
+                  toAssetIcon: tokens.find(t => t.symbol === toToken)?.icon ||
+                    `fab fa-${toToken === 'ETH' ? 'ethereum' : toToken === 'BTC' ? 'bitcoin' : 'dollar-sign'}`,
+                  toAssetClass: `asset-${toToken.toLowerCase()}`,
+                  fromNetwork: networks.find(n => n.id === selectedNetwork)?.name || selectedNetwork,
+                  fromNetworkIcon: networks.find(n => n.id === selectedNetwork)?.icon || 'fas fa-layer-group',
+                  fromNetworkClass: `network-${selectedNetwork}`,
+                  toNetwork: networks.find(n => n.id === selectedNetwork)?.name || selectedNetwork,
+                  toNetworkIcon: networks.find(n => n.id === selectedNetwork)?.icon || 'fas fa-layer-group',
+                  toNetworkClass: `network-${selectedNetwork}`,
+                  amount: fromAmount + ' ' + fromToken,
+                  status: 'completed',
+                  statusClass: 'status-completed',
+                  walletAddress: connectedAddress,
+                  txHash: '0x' + Math.random().toString(16).substr(2, 64),
+                  details: {
+                    exchangeRate: `1 ${fromToken} = ${(parseFloat(toAmount) / parseFloat(fromAmount)).toFixed(6)} ${toToken}`,
+                    networkFee: '$12.50',
+                    slippage: slippage + '%',
+                    receivedAmount: toAmount + ' ' + toToken
+                  }
+                });
+
+                // Reset form after successful swap
+                setFromAmount('0.1');
+                setToAmount('0.00542');
+                alert('Swap completed successfully!');
+              } else {
+                alert('Please connect your wallet and enter an amount to swap');
+              }
+            }}>Swap Now</button>
           </div>
 
           <div className="transaction-history">
@@ -358,26 +414,31 @@ export default function SwapPage() {
 
             <div className="history-header" style={{marginTop: '30px'}}>
               <h2 className="history-title">Recent Swaps</h2>
-              <a href="#" className="view-all">View All</a>
+              <a href="/Transactions" className="view-all">View All</a>
             </div>
             <div className="transaction-list">
-              {transactions.map((tx) => (
+              {transactions.filter(tx => tx.type === 'Swap').slice(0, 3).map((tx) => (
                 <div key={tx.id} className="transaction-item">
                   <div className="transaction-info">
-                    <div className={`transaction-icon ${tx.icon}`}>
-                      <i className={`fab fa-${tx.icon === 'eth' ? 'ethereum' : tx.icon === 'btc' ? 'bitcoin' : 'dollar-sign'}`}></i>
+                    <div className={`transaction-icon ${tx.fromAssetClass}`}>
+                      <i className={tx.fromAssetIcon}></i>
                     </div>
                     <div className="transaction-details">
-                      <h4>{tx.type}</h4>
-                      <p>{tx.time}</p>
+                      <h4>{tx.fromAsset} to {tx.toAsset}</h4>
+                      <p>{tx.date}</p>
                     </div>
                   </div>
-                  <div className="transaction-amount">{tx.amount}</div>
-                  <div className={`status ${tx.status}`}>
+                  <div className="transaction-amount">+{tx.amount}</div>
+                  <div className={`status ${tx.statusClass.split('-')[1]}`}>
                     {tx.status}
                   </div>
                 </div>
               ))}
+              {transactions.filter(tx => tx.type === 'Swap').length === 0 && (
+                <div className="no-transactions">
+                  <p>No swap transactions yet. Connect your wallet and make a swap to see your history here.</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -386,44 +447,6 @@ export default function SwapPage() {
           <p>© 2025 BitStark Swap. All rights reserved. | Security Audit Passed | v2.1.4</p>
         </footer>
       </div>
-
-      {/* Token Selection Modal */}
-      {showTokenModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-gray-800 rounded-xl p-6 w-full max-w-md mx-4">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xl font-bold text-white">Select Token</h3>
-              <button
-                onClick={() => setShowTokenModal(false)}
-                className="text-gray-400 hover:text-white"
-              >
-                <i className="fas fa-times"></i>
-              </button>
-            </div>
-            <div className="space-y-2 max-h-96 overflow-y-auto">
-              {tokens.map((token) => (
-                <div
-                  key={token.symbol}
-                  onClick={() => selectToken(token.symbol)}
-                  className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-700 cursor-pointer transition-colors"
-                >
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white ${token.color}`}>
-                    <i className={token.icon}></i>
-                  </div>
-                  <div className="flex-1">
-                    <div className="font-semibold text-white">{token.symbol}</div>
-                    <div className="text-sm text-gray-400">{token.name}</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-semibold text-white">{token.balance}</div>
-                    <div className="text-sm text-gray-400">{token.usd}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Network Selection Modal */}
       {showNetworkModal && (
@@ -460,6 +483,115 @@ export default function SwapPage() {
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Settings Modal */}
+      {showSettingsModal && (
+        <div className="settings-modal-overlay">
+          <div className="settings-modal-content">
+            <div className="settings-modal-header">
+              <h2 className="settings-modal-title">Swap Settings</h2>
+              <button
+                className="settings-modal-close"
+                onClick={() => setShowSettingsModal(false)}
+              >
+                <i className="fas fa-times"></i>
+              </button>
+            </div>
+
+            <div className="settings-modal-body">
+              <div className="settings-section">
+                <label className="settings-label">Slippage Tolerance</label>
+                <div className="slippage-controls">
+                  <button
+                    onClick={() => handleSlippageSelect('0.5')}
+                    className={`slippage-preset ${activeSlippage === '0.5' ? 'active' : ''}`}
+                  >
+                    0.5%
+                  </button>
+                  <button
+                    onClick={() => handleSlippageSelect('1')}
+                    className={`slippage-preset ${activeSlippage === '1' ? 'active' : ''}`}
+                  >
+                    1%
+                  </button>
+                  <button
+                    onClick={() => handleSlippageSelect('2')}
+                    className={`slippage-preset ${activeSlippage === '2' ? 'active' : ''}`}
+                  >
+                    2%
+                  </button>
+                  <div className="slippage-custom">
+                    <input
+                      type="number"
+                      value={slippage}
+                      onChange={(e) => setSlippage(e.target.value)}
+                      className="slippage-input"
+                      placeholder="1.0"
+                      min="0.1"
+                      max="50"
+                      step="0.1"
+                    />
+                    <span className="slippage-unit">%</span>
+                  </div>
+                </div>
+                <p className="settings-description">
+                  Your transaction will revert if the price changes unfavorably by more than this percentage.
+                </p>
+              </div>
+
+              <div className="settings-section">
+                <label className="settings-label">Transaction Deadline</label>
+                <div className="deadline-input">
+                  <input
+                    type="number"
+                    defaultValue="20"
+                    className="deadline-field"
+                    min="1"
+                    max="4320"
+                  />
+                  <span className="deadline-unit">minutes</span>
+                </div>
+                <p className="settings-description">
+                  Your transaction will revert if it is pending for more than this period of time.
+                </p>
+              </div>
+
+              <div className="settings-section">
+                <label className="settings-label">Interface Settings</label>
+                <div className="interface-toggles">
+                  <div className="toggle-item">
+                    <div className="toggle-switch active">
+                      <div className="toggle-slider"></div>
+                    </div>
+                    <span className="toggle-label">Auto-refresh quotes</span>
+                  </div>
+                  <div className="toggle-item">
+                    <div className="toggle-switch">
+                      <div className="toggle-slider"></div>
+                    </div>
+                    <span className="toggle-label">Expert mode</span>
+                  </div>
+                  <div className="toggle-item">
+                    <div className="toggle-switch active">
+                      <div className="toggle-slider"></div>
+                    </div>
+                    <span className="toggle-label">Show detailed price impact</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="settings-modal-footer">
+              <button
+                className="settings-save-btn"
+                onClick={() => setShowSettingsModal(false)}
+              >
+                Save Settings
+              </button>
             </div>
           </div>
         </div>

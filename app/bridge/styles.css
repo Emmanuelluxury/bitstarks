@@ -86,18 +86,23 @@
         }
 
         .wallet-connect {
-            background: var(--primary);
+            background: linear-gradient(90deg, #8b5cf6, #06b6d4);
             color: white;
             border: none;
-            padding: 15px 7px;
-            border-radius: var(--border-radius);
+            padding: 12px 15px;
+            border-radius: 12px;
             font-weight: 600;
             cursor: pointer;
             transition: var(--transition);
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 4px 15px rgba(124, 58, 237, 0.3);
         }
 
         .wallet-connect:hover {
-            background: var(--primary-dark);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(124, 58, 237, 0.4);
         }
 
         .main-content {
@@ -538,18 +543,18 @@
         }
 
         .connect-wallet {
-  background: var(--gradient);
-  color: white;
-  border: none;
-  padding: 12px 24px;
-  border-radius: 8px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: var(--transition);
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  box-shadow: 0 4px 15px rgba(124, 58, 237, 0.3);
+            background: var(--gradient);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+           font-weight: 600;
+           cursor: pointer;
+           transition: var(--transition);
+           display: inline-flex;
+           align-items: center;
+           gap: 10px;
+           box-shadow: 0 4px 15px rgba(124, 58, 237, 0.3);
 }
 
 .connect-wallet:hover {
@@ -667,6 +672,666 @@
   color: white;
 }
 
+        /* Tab Navigation */
+        .tab-navigation {
+          display: flex;
+          background: var(--dark);
+          border-radius: var(--border-radius);
+          padding: 4px;
+          margin-bottom: 30px;
+          box-shadow: var(--card-shadow);
+        }
+        
+        .tab-button {
+          flex: 1;
+          padding: 12px 24px;
+          background: transparent;
+          border: none;
+          color: var(--gray);
+          font-size: 16px;
+          font-weight: 600;
+          cursor: pointer;
+          border-radius: calc(var(--border-radius) - 4px);
+          transition: all 0.3s ease;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+        }
+        
+        .tab-button:hover {
+          background: rgba(255, 255, 255, 0.05);
+          color: var(--light);
+        }
+        
+        .tab-button.active {
+          background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+          color: white;
+          box-shadow: 0 4px 15px rgba(124, 58, 237, 0.3);
+        }
+        
+        /* Liquidity Page Styles */
+        .liquidity-content {
+          max-width: 1400px;
+          margin: 0 auto;
+        }
+        
+        .liquidity-header {
+          text-align: center;
+          margin-bottom: 40px;
+        }
+        
+        .liquidity-title {
+          font-size: 36px;
+          font-weight: 700;
+          color: white;
+          margin-bottom: 10px;
+        }
+        
+        .liquidity-subtitle {
+          font-size: 18px;
+          color: var(--gray);
+          max-width: 600px;
+          margin: 0 auto;
+        }
+        
+        .liquidity-stats {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+          gap: 24px;
+          margin-bottom: 50px;
+        }
+        
+        .liquidity-stats .stat-card {
+          background: linear-gradient(135deg, rgba(15, 23, 42, 0.8) 0%, rgba(30, 41, 59, 0.6) 100%);
+          border-radius: 16px;
+          padding: 28px;
+          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+          border: 1px solid rgba(124, 58, 237, 0.1);
+          backdrop-filter: blur(10px);
+          transition: all 0.4s ease;
+          position: relative;
+          overflow: hidden;
+        }
+        
+        .liquidity-stats .stat-card::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 2px;
+          background: linear-gradient(90deg, #8b5cf6, #3b82f6, #06b6d4, #8b5cf6);
+          background-size: 200% 100%;
+          animation: shimmer 3s infinite;
+        }
+        
+        .liquidity-stats .stat-card:hover {
+          transform: translateY(-8px);
+          box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4), 0 0 20px rgba(124, 58, 237, 0.2);
+          border-color: rgba(124, 58, 237, 0.3);
+        }
+        
+        .liquidity-stats .stat-icon {
+          width: 56px;
+          height: 56px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 24px;
+          margin-bottom: 20px;
+          position: relative;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+        
+        .liquidity-stats .stat-bridge {
+          background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+          color: white;
+        }
+        
+        .liquidity-stats .stat-swap {
+          background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+          color: white;
+        }
+        
+        .liquidity-stats .stat-lock {
+          background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+          color: white;
+        }
+        
+        .liquidity-stats .stat-unlock {
+          background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+          color: white;
+        }
+        
+        .liquidity-stats .stat-value {
+          font-size: 32px;
+          font-weight: 800;
+          color: white;
+          margin-bottom: 8px;
+          letter-spacing: -0.02em;
+          text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        
+        .liquidity-stats .stat-label {
+          color: #94a3b8;
+          font-size: 14px;
+          font-weight: 500;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+        
+        .pools-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+          gap: 24px;
+          margin-bottom: 60px;
+        }
+        
+        .pool-card {
+          background: linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.7) 100%);
+          border-radius: 16px;
+          padding: 28px;
+          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+          transition: all 0.4s ease;
+          border: 1px solid rgba(124, 58, 237, 0.1);
+          backdrop-filter: blur(10px);
+          position: relative;
+          overflow: hidden;
+        }
+
+        .pool-card::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 2px;
+          background: linear-gradient(90deg, #8b5cf6, #3b82f6, #06b6d4);
+          background-size: 200% 100%;
+          animation: shimmer 4s infinite;
+          opacity: 0;
+          transition: opacity 0.3s ease;
+        }
+
+        .pool-card:hover::before {
+          opacity: 1;
+        }
+
+        .pool-card:hover {
+          transform: translateY(-8px);
+          box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4), 0 0 20px rgba(124, 58, 237, 0.15);
+          border-color: rgba(124, 58, 237, 0.25);
+        }
+        
+        .pool-header {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+          margin-bottom: 20px;
+        }
+        
+        .pool-tokens {
+          display: flex;
+          position: relative;
+        }
+        
+        .token-icon-small {
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 14px;
+          border: 2px solid var(--dark);
+        }
+        
+        .token-icon-small:not(:first-child) {
+          margin-left: -8px;
+        }
+        
+        .btc-icon { background: #f7931a; color: white; }
+        .eth-icon { background: #627eea; color: white; }
+        .usdc-icon { background: #2775ca; color: white; }
+        .stark-icon { background: #8a2be2; color: white; }
+        .matic-icon { background: #8247e5; color: white; }
+        
+        .pool-name h3 {
+          font-size: 18px;
+          font-weight: 700;
+          color: white;
+          margin: 0 0 4px 0;
+        }
+        
+        .pool-type {
+          font-size: 12px;
+          color: var(--primary);
+          background: rgba(124, 58, 237, 0.1);
+          padding: 2px 8px;
+          border-radius: 12px;
+          font-weight: 600;
+        }
+        
+        .pool-stats {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 16px;
+          margin-bottom: 24px;
+        }
+        
+        .pool-stat {
+          text-align: center;
+        }
+        
+        .pool-stat .stat-label {
+          display: block;
+          font-size: 12px;
+          color: var(--gray);
+          margin-bottom: 4px;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+        
+        .pool-stat .stat-value {
+          display: block;
+          font-size: 16px;
+          font-weight: 700;
+          color: white;
+        }
+        
+        .pool-actions {
+          display: flex;
+          gap: 12px;
+        }
+        
+        .add-liquidity-btn, .remove-liquidity-btn {
+          flex: 1;
+          padding: 12px 16px;
+          border-radius: var(--border-radius);
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.3s ease;
+          border: none;
+        }
+        
+        .add-liquidity-btn {
+          background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+          color: white;
+        }
+        
+        .add-liquidity-btn:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 8px 25px rgba(124, 58, 237, 0.3);
+        }
+        
+        .remove-liquidity-btn {
+          background: transparent;
+          color: var(--gray);
+          border: 1px solid rgba(148, 163, 184, 0.3);
+        }
+        
+        .remove-liquidity-btn:hover {
+          background: rgba(239, 68, 68, 0.1);
+          color: #ef4444;
+          border-color: #ef4444;
+        }
+        
+        .liquidity-info {
+          background: var(--dark);
+          border-radius: var(--border-radius);
+          padding: 40px;
+          box-shadow: var(--card-shadow);
+        }
+        
+        .info-section h3 {
+          font-size: 24px;
+          font-weight: 700;
+          color: white;
+          text-align: center;
+          margin-bottom: 40px;
+        }
+        
+        .info-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+          gap: 30px;
+        }
+        
+        .info-item {
+          display: flex;
+          align-items: flex-start;
+          gap: 20px;
+        }
+        
+        .info-icon {
+          width: 50px;
+          height: 50px;
+          border-radius: 50%;
+          background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: white;
+          font-size: 18px;
+          flex-shrink: 0;
+        }
+        
+        .info-content h4 {
+          font-size: 18px;
+          font-weight: 600;
+          color: white;
+          margin: 0 0 8px 0;
+        }
+        
+        .info-content p {
+          color: var(--gray);
+          line-height: 1.6;
+          margin: 0;
+        }
+        
+        /* Liquidity Modal Styles */
+        .liquidity-modal-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0, 0, 0, 0.8);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1000;
+          backdrop-filter: blur(8px);
+          animation: fadeIn 0.3s ease-out;
+        }
+        
+        .liquidity-modal-content {
+          background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+          border-radius: 20px;
+          padding: 32px;
+          width: 100%;
+          max-width: 520px;
+          border: 1px solid rgba(124, 58, 237, 0.2);
+          box-shadow: 0 25px 50px rgba(0, 0, 0, 0.8), 0 0 30px rgba(124, 58, 237, 0.1);
+          animation: slideUp 0.4s ease-out;
+          position: relative;
+          overflow: hidden;
+        }
+        
+        .liquidity-modal-content::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 2px;
+          background: linear-gradient(90deg, #8b5cf6, #3b82f6, #06b6d4);
+          animation: shimmer 2s infinite;
+        }
+        
+        .liquidity-modal-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 28px;
+          padding-bottom: 20px;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .liquidity-modal-title {
+          font-size: 24px;
+          font-weight: 700;
+          color: white;
+          margin: 0;
+          background: linear-gradient(135deg, #e2e8f0 0%, #f1f5f9 100%);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+        }
+        
+        .liquidity-modal-close {
+          background: rgba(255, 255, 255, 0.1);
+          border: none;
+          color: #94a3b8;
+          font-size: 20px;
+          cursor: pointer;
+          padding: 8px;
+          border-radius: 10px;
+          transition: all 0.3s ease;
+          backdrop-filter: blur(10px);
+        }
+        
+        .liquidity-modal-close:hover {
+          color: white;
+          background: rgba(239, 68, 68, 0.2);
+          transform: rotate(90deg);
+        }
+        
+        .liquidity-pool-info {
+          text-align: center;
+          margin-bottom: 32px;
+        }
+        
+        .liquidity-pool-tokens {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 16px;
+          margin-bottom: 16px;
+          position: relative;
+        }
+        
+        .liquidity-token-icon {
+          width: 48px;
+          height: 48px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 18px;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+          border: 2px solid rgba(255, 255, 255, 0.1);
+          transition: all 0.3s ease;
+        }
+        
+        .liquidity-token-icon:hover {
+          transform: scale(1.1);
+          box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+        }
+        
+        .liquidity-pool-name {
+          font-size: 20px;
+          font-weight: 600;
+          color: white;
+          margin: 0;
+          letter-spacing: -0.02em;
+        }
+        
+        .liquidity-form-section {
+          margin-bottom: 24px;
+        }
+        
+        .liquidity-form-group {
+          margin-bottom: 20px;
+        }
+        
+        .liquidity-form-label {
+          display: block;
+          font-size: 14px;
+          font-weight: 600;
+          color: #e2e8f0;
+          margin-bottom: 10px;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+        
+        .liquidity-form-input {
+          width: 100%;
+          background: rgba(30, 41, 59, 0.8);
+          border: 2px solid rgba(51, 65, 85, 0.5);
+          border-radius: 12px;
+          padding: 16px 20px;
+          color: white;
+          font-size: 16px;
+          font-weight: 500;
+          transition: all 0.3s ease;
+          backdrop-filter: blur(10px);
+        }
+        
+        .liquidity-form-input:focus {
+          outline: none;
+          border-color: #8b5cf6;
+          box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.1), 0 0 20px rgba(139, 92, 246, 0.2);
+          background: rgba(30, 41, 59, 0.9);
+        }
+        
+        .liquidity-form-input::placeholder {
+          color: #64748b;
+        }
+        
+        .liquidity-input-group {
+          position: relative;
+        }
+        
+        .liquidity-input-symbol {
+          position: absolute;
+          right: 16px;
+          top: 50%;
+          transform: translateY(-50%);
+          color: #94a3b8;
+          font-weight: 600;
+          font-size: 14px;
+          background: rgba(51, 65, 85, 0.5);
+          padding: 4px 8px;
+          border-radius: 6px;
+        }
+        
+        .liquidity-summary {
+          background: linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(51, 65, 85, 0.4) 100%);
+          border-radius: 12px;
+          padding: 20px;
+          margin: 24px 0;
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          backdrop-filter: blur(10px);
+        }
+        
+        .liquidity-summary-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 12px;
+          padding: 8px 0;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        
+        .liquidity-summary-row:last-child {
+          margin-bottom: 0;
+          border-bottom: none;
+          padding-bottom: 0;
+        }
+        
+        .liquidity-summary-label {
+          font-size: 14px;
+          color: #cbd5e1;
+          font-weight: 500;
+        }
+        
+        .liquidity-summary-value {
+          font-size: 14px;
+          font-weight: 700;
+          color: white;
+          text-align: right;
+        }
+        
+        .liquidity-submit-btn {
+          width: 100%;
+          background: linear-gradient(135deg, #8b5cf6 0%, #3b82f6 50%, #06b6d4 100%);
+          color: white;
+          border: none;
+          border-radius: 12px;
+          padding: 16px 24px;
+          font-size: 16px;
+          font-weight: 700;
+          cursor: pointer;
+          transition: all 0.3s ease;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          position: relative;
+          overflow: hidden;
+        }
+        
+        .liquidity-submit-btn::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: -100%;
+          width: 100%;
+          height: 100%;
+          background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+          transition: left 0.5s ease;
+        }
+        
+        .liquidity-submit-btn:hover::before {
+          left: 100%;
+        }
+        
+        .liquidity-submit-btn:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 10px 30px rgba(139, 92, 246, 0.4);
+        }
+        
+        .liquidity-submit-btn:active {
+          transform: translateY(0);
+        }
+        
+        /* Token color classes for modal */
+        .btc-icon {
+          background: linear-gradient(135deg, #f7931a 0%, #e67e22 100%);
+          color: white;
+        }
+        
+        .eth-icon {
+          background: linear-gradient(135deg, #627eea 0%, #4c63d2 100%);
+          color: white;
+        }
+        
+        .stark-icon {
+          background: linear-gradient(135deg, #8a2be2 0%, #6b1fb1 100%);
+          color: white;
+        }
+        
+        /* Animations */
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
+        }
+        
+        @keyframes slideUp {
+          from {
+            opacity: 0;
+            transform: translateY(30px) scale(0.95);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+        
+        @keyframes shimmer {
+          0% {
+            background-position: -200% 0;
+          }
+          100% {
+            background-position: 200% 0;
+          }
+        }
+        
         @media (max-width: 768px) {
             .main-content {
                 grid-template-columns: 1fr;

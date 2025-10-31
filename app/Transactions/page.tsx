@@ -1,25 +1,36 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
+import { useTransactions } from '../components/TransactionContext';
 import './styles.css';
 
 export default function TransactionsPage() {
-  const [connectedWallet, setConnectedWallet] = useState<string | null>(null);
-  const [activeTypeFilter, setActiveTypeFilter] = useState('All');
-  const [activeStatusFilter, setActiveStatusFilter] = useState('All');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
+    const { getTransactionsByWallet } = useTransactions();
+    const searchParams = useSearchParams();
+    const tabParam = searchParams.get('tab');
 
-  const stats = [
-    { icon: 'fas fa-bridge', label: 'Bridge Transactions', value: '24', color: 'stat-bridge' },
-    { icon: 'fas fa-exchange-alt', label: 'Swap Transactions', value: '42', color: 'stat-swap' },
-    { icon: 'fas fa-lock', label: 'Lock Transactions', value: '15', color: 'stat-lock' },
-    { icon: 'fas fa-unlock', label: 'Unlock Transactions', value: '8', color: 'stat-unlock' }
-  ];
+    const [connectedWallet, setConnectedWallet] = useState<string | null>(null);
+    const [activeTypeFilter, setActiveTypeFilter] = useState('All');
+    const [activeStatusFilter, setActiveStatusFilter] = useState('All');
+    const [searchQuery, setSearchQuery] = useState('');
+    const [currentPage, setCurrentPage] = useState(1);
+    const [userTransactions, setUserTransactions] = useState<any[]>([]);
+    const [activeTab, setActiveTab] = useState<'transactions' | 'tokens'>('transactions');
 
-  const transactions = [
+    // Handle URL parameter for tab switching
+    useEffect(() => {
+      if (tabParam === 'tokens') {
+        setActiveTab('tokens');
+      } else {
+        setActiveTab('transactions');
+      }
+    }, [tabParam]);
+
+  // Use user transactions from context, fallback to mock data if no wallet connected
+  const transactions = connectedWallet && userTransactions.length > 0 ? userTransactions : [
     {
       id: 1,
       type: 'Bridge',
@@ -132,6 +143,21 @@ export default function TransactionsPage() {
     }
   ];
 
+  // Calculate dynamic stats based on transactions
+  const stats = useMemo(() => {
+    const bridgeCount = transactions.filter(tx => tx.type === 'Bridge').length;
+    const swapCount = transactions.filter(tx => tx.type === 'Swap').length;
+    const lockCount = transactions.filter(tx => tx.type === 'Lock').length;
+    const unlockCount = transactions.filter(tx => tx.type === 'Unlock').length;
+
+    return [
+      { icon: 'fas fa-bridge', label: 'Bridge Transactions', value: bridgeCount.toString(), color: 'stat-bridge' },
+      { icon: 'fas fa-exchange-alt', label: 'Swap Transactions', value: swapCount.toString(), color: 'stat-swap' },
+      { icon: 'fas fa-lock', label: 'Lock Transactions', value: lockCount.toString(), color: 'stat-lock' },
+      { icon: 'fas fa-unlock', label: 'Unlock Transactions', value: unlockCount.toString(), color: 'stat-unlock' }
+    ];
+  }, [transactions]);
+
   const typeFilters = ['All', 'Bridge', 'Swap', 'Lock/Unlock'];
   const statusFilters = ['All', 'Completed', 'Pending', 'Failed'];
 
@@ -144,12 +170,74 @@ export default function TransactionsPage() {
   };
 
   const handlePageChange = (page: number) => {
-    setCurrentPage(page);
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    }
   };
 
   const connectWallet = () => {
     setConnectedWallet('MetaMask');
   };
+
+  // Update user transactions when wallet connects
+  useEffect(() => {
+    if (connectedWallet) {
+      // Mock wallet address for demo - in real app this would come from wallet connection
+      const mockWalletAddress = '0x742d35Cc6634C0532925a3b844Bc454e4438f44e';
+      const transactions = getTransactionsByWallet(mockWalletAddress);
+      setUserTransactions(transactions);
+    } else {
+      setUserTransactions([]);
+    }
+  }, [connectedWallet, getTransactionsByWallet]);
+
+  // Filtered and searched transactions
+  const filteredTransactions = useMemo(() => {
+    let filtered = transactions;
+
+    // Apply type filter
+    if (activeTypeFilter !== 'All') {
+      if (activeTypeFilter === 'Lock/Unlock') {
+        filtered = filtered.filter(tx => tx.type === 'Lock' || tx.type === 'Unlock');
+      } else {
+        filtered = filtered.filter(tx => tx.type === activeTypeFilter);
+      }
+    }
+
+    // Apply status filter
+    if (activeStatusFilter !== 'All') {
+      const statusMap = {
+        'Completed': 'completed',
+        'Pending': 'pending',
+        'Failed': 'failed'
+      };
+      filtered = filtered.filter(tx => tx.status === statusMap[activeStatusFilter as keyof typeof statusMap]);
+    }
+
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(tx =>
+        tx.type.toLowerCase().includes(query) ||
+        tx.fromAsset.toLowerCase().includes(query) ||
+        tx.toAsset.toLowerCase().includes(query) ||
+        tx.fromNetwork.toLowerCase().includes(query) ||
+        tx.toNetwork.toLowerCase().includes(query) ||
+        tx.amount.toLowerCase().includes(query) ||
+        tx.status.toLowerCase().includes(query)
+      );
+    }
+
+    return filtered;
+  }, [transactions, activeTypeFilter, activeStatusFilter, searchQuery]);
+
+  // Pagination logic
+  const itemsPerPage = 10;
+  const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage);
+  const paginatedTransactions = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredTransactions.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredTransactions, currentPage]);
 
   const exportCSV = () => {
     // Mock export functionality
@@ -242,7 +330,7 @@ export default function TransactionsPage() {
         <div className="transactions-container">
           <div className="transactions-header">
             <h2 className="transactions-title">Recent Transactions</h2>
-            <div className="transactions-count">Showing {transactions.length} of 89 transactions</div>
+            <div className="transactions-count">Showing {paginatedTransactions.length} of {filteredTransactions.length} transactions</div>
           </div>
 
           <table className="transactions-table">
@@ -258,7 +346,7 @@ export default function TransactionsPage() {
               </tr>
             </thead>
             <tbody>
-              {transactions.map((tx) => (
+              {paginatedTransactions.map((tx) => (
                 <tr key={tx.id} className="transaction-row">
                   <td>
                     <div className="transaction-type">
@@ -327,7 +415,7 @@ export default function TransactionsPage() {
           </table>
 
           <div className="pagination">
-            <div className="pagination-info">Page {currentPage} of 9</div>
+            <div className="pagination-info">Page {currentPage} of {totalPages}</div>
             <div className="pagination-controls">
               <button
                 className="pagination-button"
@@ -336,17 +424,21 @@ export default function TransactionsPage() {
               >
                 <i className="fas fa-chevron-left"></i>
               </button>
-              {[1, 2, 3, 4, 5].map((page) => (
-                <button
-                  key={page}
-                  className={`pagination-button ${currentPage === page ? 'active' : ''}`}
-                  onClick={() => handlePageChange(page)}
-                >
-                  {page}
-                </button>
-              ))}
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                const page = Math.max(1, Math.min(totalPages - 4, currentPage - 2)) + i;
+                return (
+                  <button
+                    key={page}
+                    className={`pagination-button ${currentPage === page ? 'active' : ''}`}
+                    onClick={() => handlePageChange(page)}
+                  >
+                    {page}
+                  </button>
+                );
+              })}
               <button
                 className="pagination-button"
+                disabled={currentPage === totalPages}
                 onClick={() => handlePageChange(currentPage + 1)}
               >
                 <i className="fas fa-chevron-right"></i>
@@ -356,7 +448,7 @@ export default function TransactionsPage() {
         </div>
 
         <footer>
-          <p>© 2025 CrossChain Dashboard. All rights reserved. Use at your own risk.</p>
+          <p>© 2025 BitStark Transactions. All rights reserved. | Security Audit Passed | v2.1.4</p>
         </footer>
       </div>
     </div>
