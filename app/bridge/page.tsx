@@ -22,7 +22,10 @@ export default function BridgePage() {
     const [bitcoinBalance, setBitcoinBalance] = useState<number | null>(null);
     const [starknetBalance, setStarknetBalance] = useState<number | null>(null);
     const [bridgeFee, setBridgeFee] = useState<number>(0.0005);
+    const [bitcoinFee, setBitcoinFee] = useState<number>(0.0001);
+    const [starknetFee, setStarknetFee] = useState<number>(0.0002);
     const [estimatedTime, setEstimatedTime] = useState<string>('~15 minutes');
+    const [showFeeDropdown, setShowFeeDropdown] = useState(false);
     const [networkMode, setNetworkMode] = useState<'mainnet' | 'testnet'>('mainnet');
     const [activeTab, setActiveTab] = useState<'bridge' | 'liquidity'>('bridge');
     const [showLiquidityModal, setShowLiquidityModal] = useState(false);
@@ -90,20 +93,30 @@ export default function BridgePage() {
 
     // Dynamic fee calculation based on amount and direction
     let baseFee = 0.0005; // Base fee in BTC
+    let bitcoinNetworkFee = 0.0001; // Bitcoin network fee
+    let starknetNetworkFee = 0.0002; // Starknet network fee
 
-    // Adjust fee based on amount (larger amounts get slightly lower percentage fees)
+    // Adjust fees based on amount (larger amounts get slightly lower percentage fees)
     if (numAmount > 1) {
       baseFee = Math.max(0.0003, baseFee - (numAmount * 0.0001));
+      bitcoinNetworkFee = Math.max(0.00005, bitcoinNetworkFee - (numAmount * 0.00002));
+      starknetNetworkFee = Math.max(0.0001, starknetNetworkFee - (numAmount * 0.00004));
     } else if (numAmount > 0.1) {
       baseFee = 0.0004;
+      bitcoinNetworkFee = 0.00008;
+      starknetNetworkFee = 0.00015;
     }
 
     // Different fees for different directions (Starknet → BTC might be slightly cheaper)
     if (bridgeDirection === 'stark-to-btc') {
       baseFee *= 0.9; // 10% discount for Starknet → BTC
+      bitcoinNetworkFee *= 0.95;
+      starknetNetworkFee *= 0.9;
     }
 
     setBridgeFee(baseFee);
+    setBitcoinFee(bitcoinNetworkFee);
+    setStarknetFee(starknetNetworkFee);
 
     // Dynamic time estimation based on amount and network congestion
     let baseTime = 15; // Base time in minutes
@@ -138,14 +151,18 @@ export default function BridgePage() {
     updateBridgeMetrics(direction, maxAmountStr);
   };
 
-  const handleConnectWallet = (network: 'bitcoin' | 'starknet') => {
-    setCurrentNetwork(network);
+  const handleConnectWallet = () => {
     setIsWalletModalOpen(true);
   };
 
   const handleWalletConnect = (type: string, address?: string) => {
     console.log('Connecting wallet:', type, 'Address:', address);
-    if (currentNetwork === 'bitcoin') {
+
+    // Determine wallet type based on the wallet name
+    const isBitcoinWallet = ['xverse', 'unisat', 'phantom', 'trustwallet'].includes(type.toLowerCase());
+    const isStarknetWallet = ['ready', 'braavos', 'metamask'].includes(type.toLowerCase());
+
+    if (isBitcoinWallet) {
       setBitcoinWalletConnected(true);
       setBitcoinWalletAddress(address || null);
       // Fetch real Bitcoin balance when wallet connects
@@ -160,7 +177,7 @@ export default function BridgePage() {
       if (direction === 'stark-to-btc' && address) {
         setToAddress(address);
       }
-    } else {
+    } else if (isStarknetWallet) {
       setStarknetWalletConnected(true);
       setStarknetWalletAddress(address || null);
       // Fetch real Starknet balance when wallet connects
@@ -176,7 +193,11 @@ export default function BridgePage() {
         setFromAddress(address);
       }
     }
-    setIsWalletModalOpen(false);
+
+    // Close modal when both wallets are connected
+    if ((isBitcoinWallet && starknetWalletConnected) || (isStarknetWallet && bitcoinWalletConnected)) {
+      setIsWalletModalOpen(false);
+    }
   };
 
   // Function to fetch real Bitcoin balance using BlockCypher API
@@ -439,11 +460,7 @@ export default function BridgePage() {
 
   const handleBridge = () => {
     if (!bitcoinWalletConnected || !starknetWalletConnected) {
-      if (!bitcoinWalletConnected) {
-        handleConnectWallet('bitcoin');
-      } else if (!starknetWalletConnected) {
-        handleConnectWallet('starknet');
-      }
+      handleConnectWallet();
       return;
     }
 
@@ -474,6 +491,9 @@ export default function BridgePage() {
         details: {
           direction,
           fee: bridgeFee,
+          bitcoinFee,
+          starknetFee,
+          totalFees: bridgeFee + bitcoinFee + (direction === 'btc-to-stark' ? starknetFee : 0),
           estimatedTime
         }
       });
@@ -487,7 +507,8 @@ export default function BridgePage() {
       <header>
         <div className="logo">
                 <div className="logo-icon">
-                    <i className="fas fa-bridge"></i>
+                    {/* <i className="fas fa-bridge"></i> */}
+                    <img src="/image.png" alt="BitStark Logo" className="bitstarks-logo" />
                 </div>
                 <span>BitStark Bridge</span>
             </div>
@@ -499,17 +520,13 @@ export default function BridgePage() {
             <li><a href="/Lock-Unlock"><i className="fas fa-unlock"></i> Lock-Unlock</a></li>
           </ul>
         </nav>
-        <button className={`wallet-connect ${bitcoinWalletConnected ? 'connected' : ''}`} onClick={() => handleConnectWallet('bitcoin')}>
-          <i className={`fas ${bitcoinWalletConnected ? 'fa-check' : 'fa-wallet'}`}></i>
-          {bitcoinWalletConnected && bitcoinWalletAddress
-            ? `${bitcoinWalletAddress.substring(0, 6)}...${bitcoinWalletAddress.substring(bitcoinWalletAddress.length - 4)}`
-            : 'Connect Bitcoin Wallet'}
-        </button>
-        <button className={`wallet-connect ${starknetWalletConnected ? 'connected' : ''}`} onClick={() => handleConnectWallet('starknet')}>
-          <i className={`fas ${starknetWalletConnected ? 'fa-check' : 'fa-wallet'}`}></i>
-          {starknetWalletConnected && starknetWalletAddress
-            ? `${starknetWalletAddress.substring(0, 6)}...${starknetWalletAddress.substring(starknetWalletAddress.length - 4)}`
-            : 'Connect Starknet Wallet'}
+        <button className={`wallet-connect ${bitcoinWalletConnected && starknetWalletConnected ? 'connected' : ''}`} onClick={handleConnectWallet}>
+          <i className={`fas ${bitcoinWalletConnected && starknetWalletConnected ? 'fa-check' : 'fa-wallet'}`}></i>
+          {bitcoinWalletConnected && starknetWalletConnected
+            ? 'Wallets Connected'
+            : bitcoinWalletConnected || starknetWalletConnected
+            ? 'Connect Second Wallet'
+            : 'Connect Wallets'}
         </button>
       </header>
 
@@ -533,7 +550,8 @@ export default function BridgePage() {
         isOpen={isWalletModalOpen}
         onClose={handleCloseWalletModal}
         onConnectWallet={handleWalletConnect}
-        network={currentNetwork}
+        network={undefined}
+        showSections={true}
       />
 
       {activeTab === 'bridge' && (
@@ -601,34 +619,15 @@ export default function BridgePage() {
                   onChange={(e) => setFromAddress(e.target.value)}
                   readOnly={direction === 'btc-to-stark' ? bitcoinWalletConnected : starknetWalletConnected}
                 />
-                {/* <div className="address-input-actions">
-                  {(direction === 'btc-to-stark' && !bitcoinWalletConnected) && (
-                    <button
-                      type="button"
-                      className="use-connected-btn"
-                      onClick={() => handleConnectWallet('bitcoin')}
-                    >
-                      Use Connected Bitcoin Wallet
-                    </button>
-                  )}
-                  {(direction === 'stark-to-btc' && !starknetWalletConnected) && (
-                    <button
-                      type="button"
-                      className="use-connected-btn"
-                      onClick={() => handleConnectWallet('starknet')}
-                    >
-                      Use Connected Starknet Wallet
-                    </button>
-                  )}
-                </div> */}
+               
               </div>
             </div>
 
             <div className="swap-button">
-            <div className="swap-icon" onClick={handleSwap}>
-              <i className="fas fa-arrow-down-arrow-up"></i>
+              <div className="swap-icon" onClick={handleSwap}>
+                <i className="fas fa-arrow-up-down"></i>
+              </div>
             </div>
-          </div>
 
             <div className="form-group">
               <label htmlFor="toAddress">
@@ -648,26 +647,7 @@ export default function BridgePage() {
                   onChange={(e) => setToAddress(e.target.value)}
                   readOnly={direction === 'btc-to-stark' ? starknetWalletConnected : (direction === 'stark-to-btc' ? bitcoinWalletConnected : false)}
                 />
-                {/* <div className="address-input-actions">
-                  {(direction === 'btc-to-stark' && !starknetWalletConnected) && (
-                    <button
-                      type="button"
-                      className="use-connected-btn"
-                      onClick={() => handleConnectWallet('starknet')}
-                    >
-                      Use Connected Starknet Wallet
-                    </button>
-                  )}
-                  {(direction === 'stark-to-btc' && !bitcoinWalletConnected) && (
-                    <button
-                      type="button"
-                      className="use-connected-btn"
-                      onClick={() => handleConnectWallet('bitcoin')}
-                    >
-                      Use Connected Bitcoin Wallet
-                    </button>
-                  )}
-                </div> */}
+
               </div>
               <div className="address-info">
                 <small className="address-hint" id="toAddressHint">
@@ -702,24 +682,46 @@ export default function BridgePage() {
                   onChange={(e) => setFromAmount(e.target.value)}
                 />
                 <button className="max-button" onClick={handleMax}>MAX</button>
+                {(bitcoinWalletConnected || starknetWalletConnected) && (
+                  <div className="fee-dropdown-container">
+                    <div
+                      className={`fee-dropdown-toggle ${showFeeDropdown ? 'active' : ''}`}
+                      onClick={() => setShowFeeDropdown(!showFeeDropdown)}
+                    >
+                      <i className="fas fa-chevron-down"></i>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </form>
 
+          {showFeeDropdown && (bitcoinWalletConnected || starknetWalletConnected) && (
+            <div className="fee-dropdown-expanded">
+              <div className="info-cards">
+                <div className="info-card">
+                  <div className="info-title">Bridge Fee</div>
+                  <div className="info-value">{bridgeFee.toFixed(6)} BTC</div>
+                </div>
+                <div className="info-card">
+                  <div className="info-title">Bitcoin Network Fee</div>
+                  <div className="info-value">{bitcoinFee.toFixed(6)} BTC</div>
+                </div>
+                <div className="info-card">
+                  <div className="info-title">Starknet Network Fee</div>
+                  <div className="info-value">{starknetFee.toFixed(6)} ETH</div>
+                </div>
+                <div className="info-card">
+                  <div className="info-title">Estimated Time</div>
+                  <div className="info-value">{estimatedTime}</div>
+                </div>
+              </div>
+            </div>
+          )}
+
           <button className="bridge-button" onClick={handleBridge} disabled={!bitcoinWalletConnected || !starknetWalletConnected}>
             Bridge Now
           </button>
-
-          <div className="info-cards">
-            <div className="info-card">
-              <div className="info-title">Bridge Fee</div>
-              <div className="info-value">{bridgeFee.toFixed(6)} BTC</div>
-            </div>
-            <div className="info-card">
-              <div className="info-title">Estimated Time</div>
-              <div className="info-value">{estimatedTime}</div>
-            </div>
-          </div>
         </div>
 
         <div className="transaction-history">
@@ -740,7 +742,6 @@ export default function BridgePage() {
                   </div>
                 </div>
                 <div className="transaction-amount">
-                  {tx.type === 'Bridge' && tx.details?.direction === 'btc-to-stark' ? '+' : '-'}
                   {tx.amount}
                 </div>
                 <div className={`status ${tx.statusClass.split('-')[1]}`}>
@@ -879,14 +880,16 @@ export default function BridgePage() {
                   token0: 'tBTC',
                   token1: 'BTC',
                   token0Icon: 'fas fa-layer-group',
-                  token1Icon: 'fab fa-bitcoin'
+                  token1Icon: 'fab fa-bitcoin',
+                  className: 'heal'
                 }, 'add')}>Add Liquidity</button>
                 <button className="remove-liquidity-btn" onClick={() => openLiquidityModal({
                   name: 'tBTC/BTC',
                   token0: 'tBTC',
                   token1: 'BTC',
                   token0Icon: 'fas fa-layer-group',
-                  token1Icon: 'fab fa-bitcoin'
+                  token1Icon: 'fab fa-bitcoin',
+                  className: 'heal'
                 }, 'remove')}>Remove</button>
               </div>
             </div>

@@ -85,6 +85,13 @@
             color: var(--light);
         }
 
+        .bitstarks-logo {
+            width: 50px;
+            height: 50px;
+            object-fit: contain;
+            border-radius: 50px;
+        }
+
         .wallet-connect {
             background: linear-gradient(90deg, #8b5cf6, #06b6d4);
             color: white;
@@ -371,6 +378,128 @@
             transform: translateY(-50%) scale(0.95);
         }
 
+        .fee-dropdown-container {
+            position: absolute;
+            right: 80px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        .fee-dropdown-toggle {
+            background: rgba(124, 58, 237, 0.1);
+            border: 1px solid rgba(124, 58, 237, 0.3);
+            color: var(--primary);
+            border-radius: 6px;
+            padding: 6px 12px;
+            cursor: pointer;
+            transition: var(--transition);
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .fee-dropdown-toggle:hover {
+            background: rgba(124, 58, 237, 0.2);
+            border-color: var(--primary);
+        }
+
+        .fee-dropdown-toggle.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        .fee-dropdown-toggle i {
+            transition: transform 0.3s ease;
+        }
+
+        .fee-dropdown-toggle.active i {
+            transform: rotate(180deg);
+        }
+
+        .fee-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: var(--dark);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: var(--border-radius);
+            padding: 15px;
+            margin-top: 5px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+            z-index: 10;
+        }
+
+        .fee-dropdown .info-cards {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 10px;
+        }
+
+        .fee-dropdown .info-card {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            background: rgba(30, 41, 59, 0.6);
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .fee-dropdown .info-title {
+            font-size: 12px;
+            color: var(--gray);
+            margin: 0;
+        }
+
+        .fee-dropdown .info-value {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--light);
+            margin: 0;
+        }
+
+        .fee-dropdown-expanded {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: rgba(30, 41, 59, 0.6);
+            border-radius: var(--border-radius);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .fee-dropdown-expanded .info-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+        }
+
+        .fee-dropdown-expanded .info-card {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            background: var(--darker);
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .fee-dropdown-expanded .info-title,
+        .fee-dropdown-expanded .info-value {
+            font-size: 14px;
+            margin: 0;
+        }
+
+        .fee-dropdown-expanded .info-title {
+            color: var(--gray);
+        }
+
+        .fee-dropdown-expanded .info-value {
+            font-weight: 600;
+            color: var(--light);
+        }
+
         .swap-button {
             display: flex;
             justify-content: center;
@@ -388,6 +517,8 @@
             cursor: pointer;
             transition: var(--transition);
             border: 2px solid var(--gray-light);
+            color: var(--light);
+            font-size: 16px;
         }
 
         .swap-icon:hover {
@@ -640,9 +771,24 @@
 }
 
 .wallet-options {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.wallet-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--primary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
 }
 
 .wallet-option {
@@ -1301,6 +1447,112 @@
           background: linear-gradient(135deg, #8a2be2 0%, #6b1fb1 100%);
           color: white;
         }
+
+        .tbtc-icon {
+          background: linear-gradient(135deg, #f7931a 0%, #e67e22 100%);
+          color: white;
+        }
+
+        /* Enhanced pool card styling for tBTC/BTC */
+        .pool-card .pool-name h3 {
+          font-size: 20px;
+          font-weight: 700;
+          color: white;
+          margin: 0 0 6px 0;
+          background: linear-gradient(135deg, #e2e8f0 0%, #f1f5f9 100%);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+        }
+
+        .pool-card .pool-type {
+          font-size: 12px;
+          color: #8b5cf6;
+          background: rgba(139, 92, 246, 0.1);
+          padding: 3px 10px;
+          border-radius: 12px;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          border: 1px solid rgba(139, 92, 246, 0.2);
+        }
+
+        .pool-card .pool-stats {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 16px;
+          margin-bottom: 24px;
+          padding: 20px;
+          background: rgba(30, 41, 59, 0.5);
+          border-radius: 12px;
+          border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .pool-card .pool-stat {
+          text-align: center;
+          position: relative;
+        }
+
+        .pool-card .pool-stat .stat-label {
+          display: block;
+          font-size: 12px;
+          color: #94a3b8;
+          margin-bottom: 6px;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          font-weight: 500;
+        }
+
+        .pool-card .pool-stat .stat-value {
+          display: block;
+          font-size: 18px;
+          font-weight: 700;
+          color: white;
+          text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .pool-card .pool-actions {
+          display: flex;
+          gap: 12px;
+          margin-top: 20px;
+        }
+
+        .pool-card .add-liquidity-btn, .pool-card .remove-liquidity-btn {
+          flex: 1;
+          padding: 14px 20px;
+          border-radius: 12px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.3s ease;
+          border: none;
+          font-size: 14px;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+
+        .pool-card .add-liquidity-btn {
+          background: linear-gradient(135deg, #8b5cf6 0%, #3b82f6 50%, #06b6d4 100%);
+          color: white;
+          box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3);
+        }
+
+        .pool-card .add-liquidity-btn:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 8px 25px rgba(139, 92, 246, 0.4);
+        }
+
+        .pool-card .remove-liquidity-btn {
+          background: transparent;
+          color: #94a3b8;
+          border: 1px solid rgba(148, 163, 184, 0.3);
+        }
+
+        .pool-card .remove-liquidity-btn:hover {
+          background: rgba(239, 68, 68, 0.1);
+          color: #ef4444;
+          border-color: #ef4444;
+          transform: translateY(-1px);
+        }
         
         /* Animations */
         @keyframes fadeIn {
@@ -1345,3 +1597,4 @@
                 display: none;
             }
         }
+

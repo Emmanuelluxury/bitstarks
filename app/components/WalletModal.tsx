@@ -27,9 +27,10 @@ interface WalletModalProps {
   onClose: () => void;
   onConnectWallet: (type: string, address?: string) => void;
   network?: 'bitcoin' | 'starknet';
+  showSections?: boolean;
 }
 
-export default function WalletModal({ isOpen, onClose, onConnectWallet, network }: WalletModalProps) {
+export default function WalletModal({ isOpen, onClose, onConnectWallet, network, showSections }: WalletModalProps) {
   const [connecting, setConnecting] = useState<string | null>(null);
 
   const isValidEthereumAddress = (address: string): boolean => {
@@ -70,21 +71,6 @@ export default function WalletModal({ isOpen, onClose, onConnectWallet, network 
 
   const allWallets = [
     {
-      name: 'Ready',
-      logo: 'https://www.google.com/s2/favicons?domain=argent.xyz&sz=128',
-      type: 'ready'
-    },
-    {
-      name: 'Braavos',
-      logo: 'https://www.google.com/s2/favicons?domain=braavos.app&sz=128',
-      type: 'braavos'
-    },
-    {
-      name: 'MetaMask',
-      logo: 'https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg',
-      type: 'metamask'
-    },
-    {
       name: 'Xverse',
       logo: 'https://www.google.com/s2/favicons?domain=xverse.app&sz=128',
       type: 'xverse'
@@ -100,13 +86,28 @@ export default function WalletModal({ isOpen, onClose, onConnectWallet, network 
       type: 'phantom'
     },
     {
-    name: 'Trust Wallet',
-    logo: 'https://www.google.com/s2/favicons?domain=trustwallet.com&sz=128',
-    type: 'trustwallet'
-  }
+      name: 'Trust Wallet',
+      logo: 'https://www.google.com/s2/favicons?domain=trustwallet.com&sz=128',
+      type: 'trustwallet'
+    },
+    {
+      name: 'Ready',
+      logo: 'https://www.google.com/s2/favicons?domain=argent.xyz&sz=128',
+      type: 'ready'
+    },
+    {
+      name: 'Braavos',
+      logo: 'https://www.google.com/s2/favicons?domain=braavos.app&sz=128',
+      type: 'braavos'
+    },
+    {
+      name: 'MetaMask',
+      logo: 'https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg',
+      type: 'metamask'
+    }
   ];
 
-  const wallets = network ? (network === 'starknet' ? allWallets.slice(0, 3) : allWallets.slice(3)) : allWallets;
+  const wallets = network ? (network === 'starknet' ? allWallets.slice(4) : allWallets.slice(0, 4)) : allWallets;
 
   const handleWalletClick = async (walletType: string) => {
     setConnecting(walletType);
@@ -431,6 +432,8 @@ export default function WalletModal({ isOpen, onClose, onConnectWallet, network 
       alert(errorMessage);
     } finally {
       setConnecting(null);
+      // Don't close modal automatically - allow multiple connections
+      // onClose();
     }
   };
 
@@ -440,25 +443,64 @@ export default function WalletModal({ isOpen, onClose, onConnectWallet, network 
     <div className="modal active" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h3 className="modal-title">Connect {network ? (network === 'bitcoin' ? 'Bitcoin' : 'Starknet') : ''} Wallet</h3>
+          <h3 className="modal-title">
+            {showSections ? 'Connect Bitcoin & Starknet Wallets' : network ? `Connect ${network === 'bitcoin' ? 'Bitcoin' : 'Starknet'} Wallet` : 'Connect Wallet'}
+          </h3>
           <button className="close-modal" onClick={onClose}>
             <i className="fas fa-times"></i>
           </button>
         </div>
         <div className="wallet-options">
-          {wallets.map((wallet, index) => (
-            <div
-              key={index}
-              className={`wallet-option ${connecting === wallet.type ? 'connecting' : ''}`}
-              onClick={() => handleWalletClick(wallet.type)}
-            >
-              <div className="wallet-icon">
-                <img src={wallet.logo} alt={`${wallet.name} logo`} style={{ width: '24px', height: '24px', borderRadius: '4px' }} />
+          {showSections ? (
+            <>
+              <div className="wallet-section">
+                <h4 className="section-title">Bitcoin Wallets</h4>
+                {wallets.slice(0, 4).map((wallet, index) => (
+                  <div
+                    key={index}
+                    className={`wallet-option ${connecting === wallet.type ? 'connecting' : ''}`}
+                    onClick={() => handleWalletClick(wallet.type)}
+                  >
+                    <div className="wallet-icon">
+                      <img src={wallet.logo} alt={`${wallet.name} logo`} style={{ width: '24px', height: '24px', borderRadius: '4px' }} />
+                    </div>
+                    <div className="wallet-name">{wallet.name}</div>
+                    {connecting === wallet.type && <div className="connecting-spinner">Connecting...</div>}
+                  </div>
+                ))}
               </div>
-              <div className="wallet-name">{wallet.name}</div>
-              {connecting === wallet.type && <div className="connecting-spinner">Connecting...</div>}
-            </div>
-          ))}
+              <div className="wallet-section">
+                <h4 className="section-title">Starknet Wallets</h4>
+                {wallets.slice(4).map((wallet, index) => (
+                  <div
+                    key={index + 4}
+                    className={`wallet-option ${connecting === wallet.type ? 'connecting' : ''}`}
+                    onClick={() => handleWalletClick(wallet.type)}
+                  >
+                    <div className="wallet-icon">
+                      <img src={wallet.logo} alt={`${wallet.name} logo`} style={{ width: '24px', height: '24px', borderRadius: '4px' }} />
+                    </div>
+                    <div className="wallet-name">{wallet.name}</div>
+                    {connecting === wallet.type && <div className="connecting-spinner">Connecting...</div>}
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            wallets.map((wallet, index) => (
+              <div
+                key={index}
+                className={`wallet-option ${connecting === wallet.type ? 'connecting' : ''}`}
+                onClick={() => handleWalletClick(wallet.type)}
+              >
+                <div className="wallet-icon">
+                  <img src={wallet.logo} alt={`${wallet.name} logo`} style={{ width: '24px', height: '24px', borderRadius: '4px' }} />
+                </div>
+                <div className="wallet-name">{wallet.name}</div>
+                {connecting === wallet.type && <div className="connecting-spinner">Connecting...</div>}
+              </div>
+            ))
+          )}
         </div>
       </div>
     </div>

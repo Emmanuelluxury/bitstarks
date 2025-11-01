@@ -71,6 +71,53 @@ export default function LockUnlockPage() {
     }
   ];
 
+  // Dynamic assets based on connected wallet and transactions
+  const [dynamicAssets, setDynamicAssets] = useState(assets);
+  const { transactions } = useTransactions();
+
+  // Update assets based on transactions when wallet connects
+  useEffect(() => {
+    if (connectedAddress) {
+      const userTransactions = transactions.filter(tx => tx.walletAddress === connectedAddress);
+      const lockedAssets = userTransactions.filter(tx => tx.type === 'Lock').length;
+      const unlockedAssets = userTransactions.filter(tx => tx.type === 'Unlock').length;
+
+      const updatedAssets = [
+        {
+          id: 1,
+          type: 'locked',
+          name: 'Bitcoin (Locked)',
+          network: 'On Bitcoin Network',
+          amount: `${(lockedAssets * 0.1).toFixed(4)} BTC`,
+          usdValue: `$${(lockedAssets * 0.1 * 37950).toFixed(2)}`,
+          status: 'locked'
+        },
+        {
+          id: 2,
+          type: 'unlocked',
+          name: 'Bitcoin (Unlocked)',
+          network: 'On Starknet',
+          amount: `${(unlockedAssets * 0.0995).toFixed(4)} tBTC`,
+          usdValue: `$${(unlockedAssets * 0.0995 * 37950).toFixed(2)}`,
+          status: 'unlocked'
+        },
+        {
+          id: 3,
+          type: 'locked',
+          name: 'Bitcoin (Locking)',
+          network: 'Processing',
+          amount: '0.1000 BTC',
+          usdValue: '$3,795.00',
+          status: 'pending'
+        }
+      ];
+
+      setDynamicAssets(updatedAssets);
+    } else {
+      setDynamicAssets(assets);
+    }
+  }, [connectedAddress, transactions]);
+
   const handleModeToggle = (newMode: 'lock' | 'unlock') => {
     setMode(newMode);
   };
@@ -143,7 +190,44 @@ export default function LockUnlockPage() {
   };
 
   const refreshAssets = () => {
-    // Mock refresh functionality
+    // Refresh assets by re-triggering the useEffect
+    if (connectedAddress) {
+      const userTransactions = transactions.filter(tx => tx.walletAddress === connectedAddress);
+      const lockedAssets = userTransactions.filter(tx => tx.type === 'Lock').length;
+      const unlockedAssets = userTransactions.filter(tx => tx.type === 'Unlock').length;
+
+      const updatedAssets = [
+        {
+          id: 1,
+          type: 'locked',
+          name: 'Bitcoin (Locked)',
+          network: 'On Bitcoin Network',
+          amount: `${(lockedAssets * 0.1).toFixed(4)} BTC`,
+          usdValue: `$${(lockedAssets * 0.1 * 37950).toFixed(2)}`,
+          status: 'locked'
+        },
+        {
+          id: 2,
+          type: 'unlocked',
+          name: 'Bitcoin (Unlocked)',
+          network: 'On Starknet',
+          amount: `${(unlockedAssets * 0.0995).toFixed(4)} tBTC`,
+          usdValue: `$${(unlockedAssets * 0.0995 * 37950).toFixed(2)}`,
+          status: 'unlocked'
+        },
+        {
+          id: 3,
+          type: 'locked',
+          name: 'Bitcoin (Locking)',
+          network: 'Processing',
+          amount: '0.1000 BTC',
+          usdValue: '$3,795.00',
+          status: 'pending'
+        }
+      ];
+
+      setDynamicAssets(updatedAssets);
+    }
     console.log('Refreshing assets...');
   };
 
@@ -176,6 +260,7 @@ export default function LockUnlockPage() {
         isOpen={isWalletModalOpen}
         onClose={handleCloseWalletModal}
         onConnectWallet={handleWalletConnect}
+        network={undefined}
       />
 
       <div className="container">
@@ -311,7 +396,7 @@ export default function LockUnlockPage() {
             </div>
 
             <div className="assets-list">
-              {assets.map((asset) => (
+              {dynamicAssets.map((asset) => (
                 <div key={asset.id} className={`asset-item ${asset.type}`}>
                   <div className="asset-info">
                     <div className={`asset-icon ${asset.type === 'locked' ? 'btc-icon' : 'stark-icon'}`}>

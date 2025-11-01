@@ -200,6 +200,7 @@ export default function SwapPage() {
         isOpen={isWalletModalOpen}
         onClose={handleCloseWalletModal}
         onConnectWallet={handleWalletConnect}
+        network={undefined}
       />
 
       <div className="container">
@@ -324,6 +325,10 @@ export default function SwapPage() {
                 <div className="detail-value">$12.50</div>
               </div>
               <div className="detail-row">
+                <div className="detail-label">Swap Fee</div>
+                <div className="detail-value">$2.50</div>
+              </div>
+              <div className="detail-row">
                 <div className="detail-label">Slippage Tolerance</div>
                 <div className="detail-value">
                   <div className="slippage-settings">
@@ -374,6 +379,7 @@ export default function SwapPage() {
                   details: {
                     exchangeRate: `1 ${fromToken} = ${(parseFloat(toAmount) / parseFloat(fromAmount)).toFixed(6)} ${toToken}`,
                     networkFee: '$12.50',
+                    swapFee: '$2.50',
                     slippage: slippage + '%',
                     receivedAmount: toAmount + ' ' + toToken
                   }
