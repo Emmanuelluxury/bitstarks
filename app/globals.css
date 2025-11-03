@@ -48,6 +48,12 @@ body {
   padding: 0 20px;
 }
 
+.starknet-logo-img {
+  width: 55px;
+  height: 55px;
+  border-radius: 50px;
+}
+
 /* Animated Background */
 .animated-bg {
   position: fixed;

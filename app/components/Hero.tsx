@@ -39,7 +39,7 @@ export default function Hero() {
                   </div>
                   <div className="chain">
                     <div className="starknet-icon">
-                      <i className="fas fa-link chain-icon"></i>                                                          
+                      <img src="/Starknet.png" alt="" className="starknet-logo-img" />
                     </div>
                     <div className="chain-name">Starknet</div>
                   </div>

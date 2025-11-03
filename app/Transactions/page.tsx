@@ -448,7 +448,7 @@ export default function TransactionsPage() {
         </div>
 
         <footer>
-          <p>© 2025 BitStark Transactions. All rights reserved. | Security Audit Passed | v2.1.4</p>
+          <p>© 2025 BitStark Transactions. All rights reserved. Use at your own risk.</p>
         </footer>
       </div>
     </div>

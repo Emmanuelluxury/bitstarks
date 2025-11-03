@@ -10,7 +10,7 @@ import './styles.css';
 export default function LockUnlockPage() {
    const { addTransaction } = useTransactions();
    const [mode, setMode] = useState<'lock' | 'unlock'>('lock');
-   const [amount, setAmount] = useState('0.1');
+   const [amount, setAmount] = useState('');
    const [address, setAddress] = useState('0x1234...5678');
    const [balance, setBalance] = useState('1.2543');
    const [connectedWallet, setConnectedWallet] = useState<string | null>(null);
@@ -18,16 +18,66 @@ export default function LockUnlockPage() {
    const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
    const [currentNetwork, setCurrentNetwork] = useState<'bitcoin' | 'starknet'>('bitcoin');
    const [transactionId, setTransactionId] = useState('bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh');
+   const [receivedAmount, setReceivedAmount] = useState(0);
+   const [lockFee, setLockFee] = useState(0);
+   const [estimatedTime, setEstimatedTime] = useState('~0 minutes');
 
   // Fee rates (0.05% for both lock and unlock)
   const LOCK_FEE_RATE = 0.0005;
   const UNLOCK_FEE_RATE = 0.0005;
 
+  // Function to update lock/unlock metrics based on amount and mode
+  const updateLockUnlockMetrics = (inputAmount: string, lockMode: 'lock' | 'unlock') => {
+    const numericAmount = parseFloat(inputAmount) || 0;
+
+    if (numericAmount === 0) {
+      setReceivedAmount(0);
+      setLockFee(0);
+      setEstimatedTime('~0 minutes');
+      return;
+    }
+
+    // Dynamic fee calculation
+    let feeRate = lockMode === 'lock' ? LOCK_FEE_RATE : UNLOCK_FEE_RATE;
+
+    // Adjust fee based on amount (larger amounts get slightly lower percentage fees)
+    if (numericAmount > 1) {
+      feeRate = Math.max(0.0003, feeRate - (numericAmount * 0.00005));
+    } else if (numericAmount > 0.1) {
+      feeRate = 0.0004;
+    }
+
+    const calculatedFee = numericAmount * feeRate;
+    const calculatedReceivedAmount = numericAmount - calculatedFee;
+
+    setLockFee(calculatedFee);
+    setReceivedAmount(calculatedReceivedAmount);
+
+    // Dynamic time estimation based on amount
+    let baseTime = lockMode === 'lock' ? 20 : 15; // Base time in minutes
+
+    // Larger amounts take longer to process
+    if (numericAmount > 1) {
+      baseTime += 5;
+    } else if (numericAmount > 0.5) {
+      baseTime += 3;
+    }
+
+    // Add some randomness to simulate real-time network conditions
+    const timeVariation = Math.floor(Math.random() * 6) - 3; // -3 to +3 minutes
+    const finalTime = Math.max(8, baseTime + timeVariation);
+
+    setEstimatedTime(`~${finalTime} minutes`);
+
+    // Generate new transaction ID when amount changes
+    setTransactionId(`bc1q${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`);
+  };
+
   // Calculate dynamic values based on amount and mode
   const numericAmount = parseFloat(amount) || 0;
   const fee = mode === 'lock' ? numericAmount * LOCK_FEE_RATE : numericAmount * UNLOCK_FEE_RATE;
-  const receivedAmount = numericAmount - fee;
-  const estimatedTime = mode === 'lock' ? '~20 minutes' : '~15 minutes';
+  const calculatedReceivedAmount = numericAmount - fee;
+  const calculatedEstimatedTime = mode === 'lock' ? '~20 minutes' : '~15 minutes';
 
   // Generate transaction ID on mount to avoid hydration mismatch
   useEffect(() => {
@@ -120,6 +170,10 @@ export default function LockUnlockPage() {
 
   const handleModeToggle = (newMode: 'lock' | 'unlock') => {
     setMode(newMode);
+    // Recalculate metrics when mode changes
+    if (amount) {
+      updateLockUnlockMetrics(amount, newMode);
+    }
   };
 
   const handleMaxClick = () => {
@@ -151,7 +205,7 @@ export default function LockUnlockPage() {
         walletAddress: connectedAddress,
         txHash: transactionId,
         details: {
-          fee: fee,
+          fee: lockFee,
           receivedAmount: receivedAmount,
           estimatedTime
         }
@@ -323,7 +377,10 @@ export default function LockUnlockPage() {
                       className="amount-field"
                       placeholder="0.0"
                       value={amount}
-                      onChange={(e) => setAmount(e.target.value)}
+                      onChange={(e) => {
+                        setAmount(e.target.value);
+                        updateLockUnlockMetrics(e.target.value, mode);
+                      }}
                     />
                     <button className="max-button" onClick={handleMaxClick}>MAX</button>
                   </div>
@@ -368,7 +425,7 @@ export default function LockUnlockPage() {
                 </div>
                 <div className="detail-row">
                   <div className="detail-label">{mode === 'lock' ? 'Lock' : 'Unlock'} Fee</div>
-                  <div className="detail-value">{fee.toFixed(4)} BTC</div>
+                  <div className="detail-value">{lockFee.toFixed(4)} BTC</div>
                 </div>
                 <div className="detail-row">
                   <div className="detail-label">Transaction ID</div>
@@ -428,7 +485,7 @@ export default function LockUnlockPage() {
         </div>
 
         <footer>
-          <p>© 2025 BitStark Lock-Unlock. All rights reserved. | Security Audit Passed | v2.1.4</p>
+          <p>© 2025 BitStark Lock-Unlock. All rights reserved. Use at your own risk.</p>
         </footer>
       </div>
     </div>

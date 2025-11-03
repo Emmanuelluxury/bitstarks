@@ -112,6 +112,12 @@
             box-shadow: 0 6px 20px rgba(124, 58, 237, 0.4);
         }
 
+        .starknet-logo-img {
+          width: 40px;
+          height: 40px;
+          border-radius: 50px;
+        }
+
         .main-content {
             display: grid;
             grid-template-columns: 1fr 400px;
@@ -646,6 +652,8 @@
 
         .transaction-amount {
             font-weight: 600;
+            word-break: break-all;
+            max-width: 100%;
         }
 
         .status {

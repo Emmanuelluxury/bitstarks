@@ -2,21 +2,21 @@ export default function Testimonials() {
   const testimonials = [
     {
       text: '"The Bitcoin-StarkNet bridge has revolutionized how I interact with DeFi. The process is seamless and the fees are significantly lower than other solutions."',
-      author: 'John Doe',
+      author: 'Emmanuel Okanandu',
       role: 'DeFi Enthusiast',
-      initials: 'JD'
+      initials: 'EO'
     },
     {
       text: '"As a developer, I appreciate the robust API and documentation. Integrating the bridge into our dApp was straightforward and our users love the experience."',
-      author: 'Sarah Johnson',
+      author: 'Nzube Emmanuel',
       role: 'Blockchain Developer',
-      initials: 'SJ'
+      initials: 'NE'
     },
     {
       text: '"The security features give me peace of mind when moving large amounts. The non-custodial approach means I always maintain control of my assets."',
-      author: 'Michael Wang',
+      author: 'Black Ghost',
       role: 'Crypto Investor',
-      initials: 'MW'
+      initials: 'BG'
     }
   ];
 

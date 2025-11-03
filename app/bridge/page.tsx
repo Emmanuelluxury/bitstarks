@@ -9,8 +9,8 @@ import './styles.css';
 export default function BridgePage() {
     const { addTransaction, transactions } = useTransactions();
     const [direction, setDirection] = useState<'btc-to-stark' | 'stark-to-btc'>('btc-to-stark');
-    const [fromAmount, setFromAmount] = useState('0.1');
-    const [toAmount, setToAmount] = useState('0.0995');
+    const [fromAmount, setFromAmount] = useState('');
+    const [toAmount, setToAmount] = useState('');
     const [fromAddress, setFromAddress] = useState('');
     const [toAddress, setToAddress] = useState('');
     const [bitcoinWalletConnected, setBitcoinWalletConnected] = useState(false);
@@ -21,10 +21,10 @@ export default function BridgePage() {
     const [starknetWalletAddress, setStarknetWalletAddress] = useState<string | null>(null);
     const [bitcoinBalance, setBitcoinBalance] = useState<number | null>(null);
     const [starknetBalance, setStarknetBalance] = useState<number | null>(null);
-    const [bridgeFee, setBridgeFee] = useState<number>(0.0005);
-    const [bitcoinFee, setBitcoinFee] = useState<number>(0.0001);
-    const [starknetFee, setStarknetFee] = useState<number>(0.0002);
-    const [estimatedTime, setEstimatedTime] = useState<string>('~15 minutes');
+    const [bridgeFee, setBridgeFee] = useState<number>(0);
+    const [bitcoinFee, setBitcoinFee] = useState<number>(0);
+    const [starknetFee, setStarknetFee] = useState<number>(0);
+    const [estimatedTime, setEstimatedTime] = useState<string>('~0 minutes');
     const [showFeeDropdown, setShowFeeDropdown] = useState(false);
     const [networkMode, setNetworkMode] = useState<'mainnet' | 'testnet'>('mainnet');
     const [activeTab, setActiveTab] = useState<'bridge' | 'liquidity'>('bridge');
@@ -90,6 +90,14 @@ export default function BridgePage() {
   // Function to update bridge fee and estimated time based on direction and amount
   const updateBridgeMetrics = (bridgeDirection: 'btc-to-stark' | 'stark-to-btc', amount: string) => {
     const numAmount = parseFloat(amount) || 0;
+
+    if (numAmount === 0) {
+      setBridgeFee(0);
+      setBitcoinFee(0);
+      setStarknetFee(0);
+      setEstimatedTime('~0 minutes');
+      return;
+    }
 
     // Dynamic fee calculation based on amount and direction
     let baseFee = 0.0005; // Base fee in BTC
@@ -589,7 +597,7 @@ export default function BridgePage() {
             </div>
             <div className={`network-card ${direction === 'stark-to-btc' ? 'active' : ''}`}>
               <div className="network-icon starknet-icon">
-                <i className="fas fa-layer-group"></i>
+                <img src="/Starknet.png" alt="" className="starknet-logo-img" />
               </div>
               <div className="network-name">Starknet</div>
               <div className="network-balance">
@@ -679,7 +687,10 @@ export default function BridgePage() {
                   className="amount-field"
                   placeholder="0.0"
                   value={fromAmount}
-                  onChange={(e) => setFromAmount(e.target.value)}
+                  onChange={(e) => {
+                    setFromAmount(e.target.value);
+                    updateBridgeMetrics(direction, e.target.value);
+                  }}
                 />
                 <button className="max-button" onClick={handleMax}>MAX</button>
                 {(bitcoinWalletConnected || starknetWalletConnected) && (
@@ -1139,7 +1150,7 @@ export default function BridgePage() {
       )}
 
       <footer>
-        <p>© 2025 BitStark Bridge. All rights reserved. | Security Audit Passed | v2.1.4</p>
+        <p>© 2025 BitStark Bridge. All rights reserved. Use at your own risk.</p>
       </footer>
     </div>
   );
