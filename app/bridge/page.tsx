@@ -1,13 +1,16 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import axios from 'axios';
 import WalletModal from '../components/WalletModal';
 import { useTransactions } from '../components/TransactionContext';
+import { initStarknet, setNetworkMode, bridgeBtcToToken, bridgeTokenToBtc } from '../utils/starknet';
+import { initBitcoinBridge, initiateBitcoinDeposit, initiateBitcoinWithdrawal } from '../utils/bitcoinBridge';
 import './styles.css';
 
 export default function BridgePage() {
-    const { addTransaction, transactions } = useTransactions();
+    const { addTransaction, transactions: rawTransactions } = useTransactions();
+    const transactions = Array.isArray(rawTransactions) ? rawTransactions : [];
     const [direction, setDirection] = useState<'btc-to-stark' | 'stark-to-btc'>('btc-to-stark');
     const [fromAmount, setFromAmount] = useState('');
     const [toAmount, setToAmount] = useState('');
@@ -27,20 +30,21 @@ export default function BridgePage() {
     const [estimatedTime, setEstimatedTime] = useState<string>('~0 minutes');
     const [showFeeDropdown, setShowFeeDropdown] = useState(false);
     const [networkMode, setNetworkMode] = useState<'mainnet' | 'testnet'>('mainnet');
-    const [activeTab, setActiveTab] = useState<'bridge' | 'liquidity'>('bridge');
-    const [showLiquidityModal, setShowLiquidityModal] = useState(false);
-    const [selectedPool, setSelectedPool] = useState<any>(null);
-    const [liquidityAction, setLiquidityAction] = useState<'add' | 'remove'>('add');
-    const [liquidityAmount, setLiquidityAmount] = useState('');
-    const [token0Amount, setToken0Amount] = useState('');
-    const [token1Amount, setToken1Amount] = useState('');
+    const [isNetworkSwitching, setIsNetworkSwitching] = useState(false);
+    const [isBridging, setIsBridging] = useState(false);
+    const [bridgeError, setBridgeError] = useState<string | null>(null);
+    const [bridgeSuccess, setBridgeSuccess] = useState<string | null>(null);
+    const [bitcoinWalletType, setBitcoinWalletType] = useState<string | null>(null);
+    const [starknetWalletType, setStarknetWalletType] = useState<string | null>(null);
+    const networkSwitchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Calculate dynamic stats based on transactions
   const stats = useMemo(() => {
-    const bridgeCount = transactions.filter(tx => tx.type === 'Bridge').length;
-    const swapCount = transactions.filter(tx => tx.type === 'Swap').length;
-    const lockCount = transactions.filter(tx => tx.type === 'Lock').length;
-    const unlockCount = transactions.filter(tx => tx.type === 'Unlock').length;
+    const safeTransactions = Array.isArray(transactions) ? transactions : [];
+    const bridgeCount = safeTransactions.filter(tx => tx && tx.type === 'Bridge').length;
+    const swapCount = safeTransactions.filter(tx => tx && tx.type === 'Swap').length;
+    const lockCount = safeTransactions.filter(tx => tx && tx.type === 'Lock').length;
+    const unlockCount = safeTransactions.filter(tx => tx && tx.type === 'Unlock').length;
 
     return [
       { icon: 'fas fa-bridge', label: 'Bridge Transactions', value: bridgeCount.toString(), color: 'stat-bridge' },
@@ -49,6 +53,55 @@ export default function BridgePage() {
       { icon: 'fas fa-unlock', label: 'Unlock Transactions', value: unlockCount.toString(), color: 'stat-unlock' }
     ];
   }, [transactions]);
+
+  // Handle network mode changes with proper wallet disconnection
+  const handleNetworkModeChange = async (newMode: 'mainnet' | 'testnet') => {
+    if (newMode === networkMode) return; // No change needed
+
+    console.log(`🔄 Switching network from ${networkMode} to ${newMode}`);
+    console.log(`📊 Network mode before change:`, networkMode);
+    setIsNetworkSwitching(true);
+
+    // Clear any existing timeout
+    if (networkSwitchTimeoutRef.current) {
+      clearTimeout(networkSwitchTimeoutRef.current);
+    }
+
+    // Disconnect wallets when switching networks
+    setBitcoinWalletConnected(false);
+    setStarknetWalletConnected(false);
+    setBitcoinWalletAddress(null);
+    setStarknetWalletAddress(null);
+    setBitcoinWalletType(null);
+    setStarknetWalletType(null);
+    setBitcoinBalance(null);
+    setStarknetBalance(null);
+    setFromAddress('');
+    setToAddress('');
+
+    // Set new network mode
+    setNetworkMode(newMode);
+    // Also update the Starknet utility network mode
+    const { setNetworkMode: setStarknetNetworkMode } = await import('../utils/starknet');
+    setStarknetNetworkMode(newMode);
+    console.log(`✅ Network mode set to: ${newMode}`);
+    console.log(`🔄 Network state updated, wallets disconnected`);
+
+    // Show switching state for a brief moment
+    networkSwitchTimeoutRef.current = setTimeout(() => {
+      setIsNetworkSwitching(false);
+      console.log(`🔄 Network switching completed, modal will re-render`);
+    }, 1000);
+  };
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (networkSwitchTimeoutRef.current) {
+        clearTimeout(networkSwitchTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const handleDirectionToggle = (newDirection: 'btc-to-stark' | 'stark-to-btc') => {
     setDirection(newDirection);
@@ -152,10 +205,10 @@ export default function BridgePage() {
     const maxAmount = direction === 'btc-to-stark'
       ? (bitcoinWalletConnected && bitcoinBalance !== null ? bitcoinBalance : 0.0020)
       : (starknetWalletConnected && starknetBalance !== null ? starknetBalance : 0.0030);
-    const maxAmountStr = maxAmount.toFixed(4);
+    const maxAmountStr = maxAmount.toFixed(6); // Use more precision for STRK
     setFromAmount(maxAmountStr);
     const toAmount = maxAmount - bridgeFee;
-    setToAmount(toAmount.toFixed(4));
+    setToAmount(toAmount.toFixed(6));
     updateBridgeMetrics(direction, maxAmountStr);
   };
 
@@ -163,16 +216,33 @@ export default function BridgePage() {
     setIsWalletModalOpen(true);
   };
 
-  const handleWalletConnect = (type: string, address?: string) => {
-    console.log('Connecting wallet:', type, 'Address:', address);
+  const handleWalletConnect = async (type: string, address?: string, detectedNetwork?: 'mainnet' | 'testnet') => {
+    console.log(`🔗 Connecting ${type} wallet. Address:`, address, `Detected network:`, detectedNetwork);
+    console.log(`📊 Current app network mode:`, networkMode);
+    console.log(`🔑 Wallet type:`, type);
+
+    // If we detected a network from the wallet connection, update the app's network mode
+    if (detectedNetwork && detectedNetwork !== networkMode) {
+      console.log(`🔄 Wallet is on ${detectedNetwork}, updating app network mode to match wallet`);
+      setNetworkMode(detectedNetwork);
+    } else if (detectedNetwork && detectedNetwork === networkMode) {
+      console.log(`✅ Wallet network (${detectedNetwork}) matches app network mode (${networkMode})`);
+    } else if (!detectedNetwork) {
+      console.log(`⚠️ No network detected from wallet connection - wallet may not support network detection`);
+    }
 
     // Determine wallet type based on the wallet name
     const isBitcoinWallet = ['xverse', 'unisat', 'phantom', 'trustwallet'].includes(type.toLowerCase());
     const isStarknetWallet = ['ready', 'braavos', 'metamask'].includes(type.toLowerCase());
 
+    console.log('🔗 handleWalletConnect called:', { type, address, detectedNetwork });
+    console.log('📊 Wallet categorization:', { isBitcoinWallet, isStarknetWallet });
+
     if (isBitcoinWallet) {
+      console.log('💰 Setting Bitcoin wallet:', { type, address });
       setBitcoinWalletConnected(true);
       setBitcoinWalletAddress(address || null);
+      setBitcoinWalletType(type);
       // Fetch real Bitcoin balance when wallet connects
       if (address) {
         fetchBitcoinBalance(address);
@@ -186,8 +256,19 @@ export default function BridgePage() {
         setToAddress(address);
       }
     } else if (isStarknetWallet) {
+      console.log('🌐 Setting Starknet wallet:', { type, address });
       setStarknetWalletConnected(true);
       setStarknetWalletAddress(address || null);
+      setStarknetWalletType(type);
+
+      // Initialize Starknet bridge system with wallet connection
+      try {
+        await initStarknet({ type, address: address || '' });
+        console.log('✅ Starknet bridge system initialized with wallet');
+      } catch (error) {
+        console.error('❌ Failed to initialize Starknet with wallet:', error);
+      }
+
       // Fetch real Starknet balance when wallet connects
       if (address) {
         fetchStarknetBalance(address);
@@ -284,7 +365,7 @@ export default function BridgePage() {
         jsonrpc: '2.0',
         method: 'starknet_call',
         params: [{
-          contract_address: '0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7', // ETH contract
+          contract_address: '0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d', // STRK contract
           entry_point_selector: '0x2e4263afad30923c891518314c3c95dbe830a16874e8abc5777a9a20b54bceaa',
           calldata: [address]
         }, 'latest']
@@ -313,7 +394,12 @@ export default function BridgePage() {
               switch (source) {
                 case 'starkscan':
                   // Starkscan API structure
-                  const starkscanBalance = data?.account?.balances?.find((b: any) => b.contract_address === '0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7')?.balance || 0;
+                  const balances = data?.account?.balances;
+                  if (!balances || !Array.isArray(balances)) {
+                    console.warn(`Starknet ${networkMode} API returned invalid balances format from starkscan. Skipping.`);
+                    continue;
+                  }
+                  const starkscanBalance = Array.isArray(balances) ? balances.find((b: any) => b && b.contract_address === '0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d')?.balance || 0 : 0;
                   balance = typeof starkscanBalance === 'string' ? parseFloat(starkscanBalance) : starkscanBalance;
                   balance = balance / Math.pow(10, 18); // Convert from wei
                   break;
@@ -337,7 +423,7 @@ export default function BridgePage() {
 
               if (!isNaN(balance) && (balance > 0 || balance === 0)) {
                 setStarknetBalance(balance);
-                console.log(`✅ Real Starknet ${networkMode} balance fetched from ${source}:`, balance, 'ETH for address:', address);
+                console.log(`✅ Real Starknet ${networkMode} balance fetched from ${source}:`, balance, 'STRK for address:', address);
                 return; // Exit after first successful fetch
               }
             } catch (parseError) {
@@ -363,152 +449,217 @@ export default function BridgePage() {
     setIsWalletModalOpen(false);
   };
 
-  const openLiquidityModal = (pool: any, action: 'add' | 'remove') => {
-    setSelectedPool(pool);
-    setLiquidityAction(action);
-    setShowLiquidityModal(true);
-    setLiquidityAmount('');
-    setToken0Amount('');
-    setToken1Amount('');
-  };
-
-  const closeLiquidityModal = () => {
-    setShowLiquidityModal(false);
-    setSelectedPool(null);
-    setLiquidityAmount('');
-    setToken0Amount('');
-    setToken1Amount('');
-  };
-
-  const handleLiquidityAmountChange = (value: string) => {
-    setLiquidityAmount(value);
-    const numValue = parseFloat(value) || 0;
-
-    if (selectedPool && liquidityAction === 'add') {
-      // Calculate proportional token amounts for adding liquidity
-      const totalLiquidity = 1000000; // Mock total liquidity
-      const userShare = numValue / totalLiquidity;
-
-      // Mock token ratios (in a real app, this would come from the pool contract)
-      const token0Ratio = 0.6; // 60% of pool
-      const token1Ratio = 0.4; // 40% of pool
-
-      setToken0Amount((userShare * token0Ratio * totalLiquidity).toFixed(6));
-      setToken1Amount((userShare * token1Ratio * totalLiquidity).toFixed(6));
+  // Function to refresh balances after transactions
+  const refreshBalances = async () => {
+    if (bitcoinWalletConnected && bitcoinWalletAddress) {
+      await fetchBitcoinBalance(bitcoinWalletAddress);
+    }
+    if (starknetWalletConnected && starknetWalletAddress) {
+      await fetchStarknetBalance(starknetWalletAddress);
     }
   };
 
-  const handleTokenAmountChange = (tokenIndex: 0 | 1, value: string) => {
-    const numValue = parseFloat(value) || 0;
 
-    if (tokenIndex === 0) {
-      setToken0Amount(value);
-      // Calculate token1 amount based on pool ratio
-      const ratio = 0.4 / 0.6; // token1/token0 ratio
-      setToken1Amount((numValue * ratio).toFixed(6));
-    } else {
-      setToken1Amount(value);
-      // Calculate token0 amount based on pool ratio
-      const ratio = 0.6 / 0.4; // token0/token1 ratio
-      setToken0Amount((numValue * ratio).toFixed(6));
-    }
-  };
-
-  const handleLiquiditySubmit = () => {
-    if (!selectedPool || (!bitcoinWalletConnected && !starknetWalletConnected)) {
-      alert('Please connect your wallet first');
+  const handleBridge = async () => {
+    // Validate required fields for bridge transaction
+    if (!fromAddress || fromAddress.trim() === '') {
+      setBridgeError(`Please enter a valid ${direction === 'btc-to-stark' ? 'Bitcoin' : 'Starknet'} address`);
       return;
     }
 
-    if (liquidityAction === 'add') {
-      if (!token0Amount || !token1Amount) {
-        alert('Please enter amounts for both tokens');
-        return;
-      }
+    if (!toAddress || toAddress.trim() === '') {
+      setBridgeError(`Please enter a valid ${direction === 'btc-to-stark' ? 'Starknet' : 'Bitcoin'} address`);
+      return;
+    }
 
-      // Add liquidity transaction
-      addTransaction({
-        type: 'Bridge',
-        typeIcon: 'fas fa-water',
-        typeClass: 'type-bridge',
-        fromAsset: selectedPool.token0,
-        fromAssetIcon: selectedPool.token0Icon,
-        fromAssetClass: `asset-${selectedPool.token0.toLowerCase()}`,
-        toAsset: selectedPool.token1,
-        toAssetIcon: selectedPool.token1Icon,
-        toAssetClass: `asset-${selectedPool.token1.toLowerCase()}`,
-        fromNetwork: 'Liquidity Pool',
-        fromNetworkIcon: 'fas fa-water',
-        fromNetworkClass: 'network-bridge',
-        toNetwork: selectedPool.name,
-        toNetworkIcon: 'fas fa-layer-group',
-        toNetworkClass: 'network-bridge',
-        amount: `${token0Amount} ${selectedPool.token0} + ${token1Amount} ${selectedPool.token1}`,
-        status: 'completed',
-        statusClass: 'status-completed',
-        walletAddress: bitcoinWalletAddress || starknetWalletAddress || '0x' + Math.random().toString(16).substr(2, 40),
-        txHash: '0x' + Math.random().toString(16).substr(2, 64),
-        details: {
-          action: 'add_liquidity',
-          pool: selectedPool.name,
-          token0Amount,
-          token1Amount,
-          lpTokens: (parseFloat(token0Amount) * 0.1).toString() // Mock LP tokens received
-        }
+    if (!fromAmount || parseFloat(fromAmount) <= 0) {
+      setBridgeError('Please enter a valid amount');
+      return;
+    }
+
+    setIsBridging(true);
+    setBridgeError(null);
+    setBridgeSuccess(null);
+
+    try {
+      console.log('🚀 Starting bridge transaction...');
+      console.log('📊 Current wallet states:', {
+        direction,
+        bitcoinWalletConnected,
+        bitcoinWalletType,
+        starknetWalletConnected,
+        starknetWalletType
       });
 
-      alert(`Successfully added liquidity to ${selectedPool.name} pool!`);
-    } else {
-      // Remove liquidity logic would go here
-      alert('Remove liquidity functionality coming soon!');
-    }
+      // Validate wallet connections
+      if (direction === 'btc-to-stark') {
+        if (!bitcoinWalletConnected || !bitcoinWalletType) {
+          console.error('❌ Bitcoin wallet validation failed:', { bitcoinWalletConnected, bitcoinWalletType });
+          throw new Error('Please connect a Bitcoin wallet to send BTC');
+        }
+        if (!starknetWalletConnected) {
+          console.error('❌ Starknet wallet validation failed for BTC->STRK:', { starknetWalletConnected });
+          throw new Error('Please connect a Starknet wallet to receive tokens');
+        }
+      } else {
+        if (!starknetWalletConnected || !starknetWalletType) {
+          console.error('❌ Starknet wallet validation failed:', { starknetWalletConnected, starknetWalletType });
+          throw new Error('Please connect a Starknet wallet to send STRK');
+        }
+        if (!bitcoinWalletConnected) {
+          console.error('❌ Bitcoin wallet validation failed for STRK->BTC:', { bitcoinWalletConnected });
+          throw new Error('Please connect a Bitcoin wallet to receive BTC');
+        }
+      }
 
-    closeLiquidityModal();
-  };
+      console.log('🔗 Wallet connections validated');
 
-  const handleBridge = () => {
-    if (!bitcoinWalletConnected || !starknetWalletConnected) {
-      handleConnectWallet();
-      return;
-    }
+      const directionText = direction === 'btc-to-stark' ? 'Bitcoin → Starknet' : 'Starknet → Bitcoin';
+      const assetSent = direction === 'btc-to-stark' ? 'BTC' : 'STRK';
+      const assetReceived = direction === 'btc-to-stark' ? 'STRK' : 'BTC';
 
-    // Record the bridge transaction
-    const walletAddress = direction === 'btc-to-stark' ? bitcoinWalletAddress : starknetWalletAddress;
-    if (walletAddress) {
+      let txResult: any;
+      if (direction === 'btc-to-stark') {
+        console.log('🔄 Executing BTC → Starknet bridge...');
+
+        // Trigger Bitcoin wallet for BTC transfer
+        const bitcoinWallet = {
+          type: bitcoinWalletType!,
+          address: bitcoinWalletAddress!
+        };
+
+        txResult = await bridgeBtcToToken(
+          fromAmount,
+          fromAddress, // btcAddress
+          '0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d', // STRK token address
+          (parseFloat(fromAmount) * 0.999).toString(), // minAmountOut (after 0.1% fee)
+          toAddress, // to
+          bitcoinWallet
+        );
+      } else {
+        console.log('🔄 Executing Starknet → BTC bridge...');
+
+        // Trigger Starknet wallet for STRK transfer
+        const starknetWallet = {
+          type: starknetWalletType!,
+          address: starknetWalletAddress!
+        };
+
+        txResult = await bridgeTokenToBtc(
+          '0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d', // STRK token address
+          fromAmount,
+          toAddress, // btcAddress
+          (parseFloat(fromAmount) * 0.998).toString(), // minBtcOut (after 0.2% fee)
+          starknetWallet
+        );
+      }
+
+      // Record the successful bridge transaction
+      const txHash = txResult.transaction_hash || txResult.starknet_tx_hash || txResult.btc_tx_hash || '0x' + Math.random().toString(16).substr(2, 64);
+      const actualFee = parseFloat(txResult.fee || '0');
+      const receivedAmount = parseFloat(txResult.amount_bridged || (parseFloat(fromAmount) - actualFee).toString());
+
       addTransaction({
         type: 'Bridge',
         typeIcon: 'fas fa-bridge',
         typeClass: 'type-bridge',
-        fromAsset: direction === 'btc-to-stark' ? 'BTC' : 'tBTC',
-        fromAssetIcon: direction === 'btc-to-stark' ? 'fab fa-bitcoin' : 'fas fa-layer-group',
-        fromAssetClass: direction === 'btc-to-stark' ? 'asset-btc' : 'asset-stark',
-        toAsset: direction === 'btc-to-stark' ? 'tBTC' : 'BTC',
-        toAssetIcon: direction === 'btc-to-stark' ? 'fas fa-layer-group' : 'fab fa-bitcoin',
-        toAssetClass: direction === 'btc-to-stark' ? 'asset-stark' : 'asset-btc',
+        fromAsset: direction === 'btc-to-stark' ? 'BTC' : 'STRK',
+        fromAssetIcon: `fab fa-${direction === 'btc-to-stark' ? 'bitcoin' : 'ethereum'}`,
+        fromAssetClass: `asset-${direction === 'btc-to-stark' ? 'btc' : 'stark'}`,
+        toAsset: direction === 'btc-to-stark' ? 'STRK' : 'BTC',
+        toAssetIcon: `fab fa-${direction === 'btc-to-stark' ? 'ethereum' : 'bitcoin'}`,
+        toAssetClass: `asset-${direction === 'btc-to-stark' ? 'stark' : 'btc'}`,
         fromNetwork: direction === 'btc-to-stark' ? 'Bitcoin' : 'Starknet',
-        fromNetworkIcon: direction === 'btc-to-stark' ? 'fab fa-bitcoin' : 'fas fa-layer-group',
-        fromNetworkClass: direction === 'btc-to-stark' ? 'network-btc' : 'network-stark',
+        fromNetworkIcon: `fab fa-${direction === 'btc-to-stark' ? 'bitcoin' : 'layer-group'}`,
+        fromNetworkClass: `network-${direction === 'btc-to-stark' ? 'btc' : 'stark'}`,
         toNetwork: direction === 'btc-to-stark' ? 'Starknet' : 'Bitcoin',
-        toNetworkIcon: direction === 'btc-to-stark' ? 'fas fa-layer-group' : 'fab fa-bitcoin',
-        toNetworkClass: direction === 'btc-to-stark' ? 'network-stark' : 'network-btc',
-        amount: fromAmount + ' ' + (direction === 'btc-to-stark' ? 'BTC' : 'tBTC'),
+        toNetworkIcon: `fab fa-${direction === 'btc-to-stark' ? 'layer-group' : 'bitcoin'}`,
+        toNetworkClass: `network-${direction === 'btc-to-stark' ? 'stark' : 'btc'}`,
+        amount: fromAmount + ' ' + assetSent,
         status: 'completed',
         statusClass: 'status-completed',
-        walletAddress,
-        txHash: '0x' + Math.random().toString(16).substr(2, 64),
+        walletAddress: fromAddress,
+        txHash,
         details: {
           direction,
-          fee: bridgeFee,
+          fromAddress,
+          toAddress,
+          sentAmount: fromAmount,
+          receivedAmount: receivedAmount.toFixed(6),
+          actualFee: actualFee.toFixed(6),
           bitcoinFee,
           starknetFee,
-          totalFees: bridgeFee + bitcoinFee + (direction === 'btc-to-stark' ? starknetFee : 0),
-          estimatedTime
+          totalFees: actualFee + bitcoinFee + (direction === 'btc-to-stark' ? starknetFee : 0),
+          estimatedTime,
+          network: networkMode,
+          btcTxHash: txResult.btc_tx_hash,
+          starknetTxHash: txResult.starknet_tx_hash || txResult.transaction_hash
         }
       });
-    }
 
-    // Bridge logic here
-    console.log('Bridging:', fromAmount);
+      console.log('🎉 Bridge transaction completed successfully!');
+      setBridgeError(null);
+
+      // Refresh balances after successful transaction
+      await refreshBalances();
+
+      // Show success message
+      const successMessage = `✅ Bridge transaction successful!\n\nDirection: ${directionText}\nSent: ${fromAmount} ${assetSent}\nReceived: ${receivedAmount.toFixed(6)} ${assetReceived}\nFee: ${actualFee.toFixed(6)} ${assetSent}\n\nTransaction Hash: ${txHash}\n\nYour tokens have been transferred successfully! Balances have been updated.`;
+      setBridgeSuccess(successMessage);
+
+    } catch (error: any) {
+      console.error('❌ Bridge transaction failed:', error);
+
+      // Provide user-friendly error messages
+      let errorMessage = 'Bridge transaction failed';
+
+      if (error.message?.includes('wallet')) {
+        errorMessage = 'Wallet connection error. Please ensure your wallet is connected and try again.';
+      } else if (error.message?.includes('network')) {
+        errorMessage = 'Network error. Please check your connection and try again.';
+      } else if (error.message?.includes('insufficient')) {
+        errorMessage = 'Insufficient balance for this transaction.';
+      } else if (error.message?.includes('rejected')) {
+        errorMessage = 'Transaction rejected by wallet.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      setBridgeError(errorMessage);
+
+      // Record failed transaction
+      addTransaction({
+        type: 'Bridge',
+        typeIcon: 'fas fa-bridge',
+        typeClass: 'type-bridge',
+        fromAsset: direction === 'btc-to-stark' ? 'BTC' : 'STRK',
+        fromAssetIcon: `fab fa-${direction === 'btc-to-stark' ? 'bitcoin' : 'ethereum'}`,
+        fromAssetClass: `asset-${direction === 'btc-to-stark' ? 'btc' : 'stark'}`,
+        toAsset: direction === 'btc-to-stark' ? 'STRK' : 'BTC',
+        toAssetIcon: `fab fa-${direction === 'btc-to-stark' ? 'ethereum' : 'bitcoin'}`,
+        toAssetClass: `asset-${direction === 'btc-to-stark' ? 'stark' : 'btc'}`,
+        fromNetwork: direction === 'btc-to-stark' ? 'Bitcoin' : 'Starknet',
+        fromNetworkIcon: `fab fa-${direction === 'btc-to-stark' ? 'bitcoin' : 'layer-group'}`,
+        fromNetworkClass: `network-${direction === 'btc-to-stark' ? 'btc' : 'stark'}`,
+        toNetwork: direction === 'btc-to-stark' ? 'Starknet' : 'Bitcoin',
+        toNetworkIcon: `fab fa-${direction === 'btc-to-stark' ? 'layer-group' : 'bitcoin'}`,
+        toNetworkClass: `network-${direction === 'btc-to-stark' ? 'stark' : 'btc'}`,
+        amount: fromAmount + ' ' + (direction === 'btc-to-stark' ? 'BTC' : 'STRK'),
+        status: 'failed',
+        statusClass: 'status-failed',
+        walletAddress: fromAddress,
+        txHash: 'failed',
+        details: {
+          direction,
+          fromAddress,
+          toAddress,
+          error: error.message,
+          network: networkMode
+        }
+      });
+    } finally {
+      setIsBridging(false);
+    }
   };
   return (
     <div className="container">
@@ -538,21 +689,6 @@ export default function BridgePage() {
         </button>
       </header>
 
-      {/* Tab Navigation */}
-      <div className="tab-navigation">
-        <button
-          className={`tab-button ${activeTab === 'bridge' ? 'active' : ''}`}
-          onClick={() => setActiveTab('bridge')}
-        >
-          <i className="fas fa-bridge"></i> Bridge
-        </button>
-        <button
-          className={`tab-button ${activeTab === 'liquidity' ? 'active' : ''}`}
-          onClick={() => setActiveTab('liquidity')}
-        >
-          <i className="fas fa-water"></i> Liquidity
-        </button>
-      </div>
 
       <WalletModal
         isOpen={isWalletModalOpen}
@@ -560,10 +696,11 @@ export default function BridgePage() {
         onConnectWallet={handleWalletConnect}
         network={undefined}
         showSections={true}
+        bitcoinNetwork={networkMode}
+        key={`wallet-modal-${networkMode}-${Date.now()}`} // Force re-render when network changes
       />
 
-      {activeTab === 'bridge' && (
-        <div className="main-content">
+      <div className="main-content">
           <div className="bridge-card">
           <div className="card-header">
             <h2 className="card-title">Bridge Assets</h2>
@@ -579,6 +716,31 @@ export default function BridgePage() {
                 onClick={() => handleDirectionToggle('stark-to-btc')}
               >
                 Starknet → Bitcoin
+              </div>
+            </div>
+            <div className="network-mode-selector">
+              <div className="mode-toggle">
+                <div
+                  className={`toggle-option ${networkMode === 'mainnet' ? 'toggle-active' : ''} ${isNetworkSwitching ? 'switching' : ''}`}
+                  onClick={() => handleNetworkModeChange('mainnet')}
+                >
+                  {isNetworkSwitching && networkMode === 'testnet' ? 'Switching...' : 'Mainnet'}
+                </div>
+                <div
+                  className={`toggle-option ${networkMode === 'testnet' ? 'toggle-active' : ''} ${isNetworkSwitching ? 'switching' : ''}`}
+                  onClick={() => handleNetworkModeChange('testnet')}
+                >
+                  {isNetworkSwitching && networkMode === 'mainnet' ? 'Switching...' : 'Testnet'}
+                </div>
+              </div>
+              {/* Network status indicator */}
+              <div className="network-status">
+                <small className="network-indicator">
+                  {bitcoinWalletConnected || starknetWalletConnected
+                    ? `Connected to ${networkMode === 'mainnet' ? 'Mainnet' : 'Testnet'}`
+                    : 'No wallet connected'
+                  }
+                </small>
               </div>
             </div>
           </div>
@@ -602,8 +764,8 @@ export default function BridgePage() {
               <div className="network-name">Starknet</div>
               <div className="network-balance">
                 Balance: {starknetWalletConnected && starknetBalance !== null
-                  ? `${starknetBalance.toFixed(4)} STAK`
-                  : '0.0030 STAK'}
+                  ? `${starknetBalance.toFixed(4)} STRK`
+                  : '0.0030 STRK'}
               </div>
             </div>
           </div>
@@ -677,8 +839,8 @@ export default function BridgePage() {
                         ? `${bitcoinBalance.toFixed(4)} BTC`
                         : '0.0020 BTC')
                     : (starknetWalletConnected && starknetBalance !== null
-                        ? `${starknetBalance.toFixed(4)} STAK`
-                        : '0.0030 STAK')}
+                        ? `${starknetBalance.toFixed(4)} STRK`
+                        : '0.0030 STRK')}
                 </span>
               </div>
               <div className="input-container">
@@ -720,7 +882,7 @@ export default function BridgePage() {
                 </div>
                 <div className="info-card">
                   <div className="info-title">Starknet Network Fee</div>
-                  <div className="info-value">{starknetFee.toFixed(6)} ETH</div>
+                  <div className="info-value">{starknetFee.toFixed(6)} STRK</div>
                 </div>
                 <div className="info-card">
                   <div className="info-title">Estimated Time</div>
@@ -730,8 +892,22 @@ export default function BridgePage() {
             </div>
           )}
 
-          <button className="bridge-button" onClick={handleBridge} disabled={!bitcoinWalletConnected || !starknetWalletConnected}>
-            Bridge Now
+          {bridgeError && (
+            <div className="error-message" style={{ color: 'red', marginBottom: '10px', textAlign: 'center' }}>
+              {bridgeError}
+            </div>
+          )}
+          {bridgeSuccess && (
+            <div className="success-message" style={{ color: 'green', marginBottom: '10px', textAlign: 'center', whiteSpace: 'pre-line' }}>
+              {bridgeSuccess}
+            </div>
+          )}
+          <button
+            className="bridge-button"
+            onClick={handleBridge}
+            disabled={isBridging || !fromAddress || !toAddress || !fromAmount || parseFloat(fromAmount) <= 0}
+          >
+            {isBridging ? 'Bridging...' : 'Bridge Now'}
           </button>
         </div>
 
@@ -741,26 +917,26 @@ export default function BridgePage() {
             <a href="/Transactions" className="view-all">View All</a>
           </div>
           <div className="transaction-list">
-            {transactions.slice(0, 4).map((tx) => (
+            {(Array.isArray(transactions) ? transactions.slice(0, 4) : []).map((tx) => (
               <div key={tx.id} className="transaction-item">
                 <div className="transaction-info">
-                  <div className={`transaction-icon ${tx.fromNetworkClass}`}>
-                    <i className={tx.fromNetworkIcon}></i>
+                  <div className={`transaction-icon ${tx.fromNetworkClass || 'network-btc'}`}>
+                    <i className={tx.fromNetworkIcon || 'fas fa-layer-group'}></i>
                   </div>
                   <div className="transaction-details">
-                    <h4>{tx.fromNetwork} to {tx.toNetwork}</h4>
-                    <p>{tx.date}</p>
+                    <h4>{tx.fromNetwork || 'Unknown'} to {tx.toNetwork || 'Unknown'}</h4>
+                    <p>{tx.date || 'Unknown date'}</p>
                   </div>
                 </div>
                 <div className="transaction-amount">
-                  {tx.amount}
+                  {tx.amount || '0'}
                 </div>
-                <div className={`status ${tx.statusClass.split('-')[1]}`}>
-                  {tx.status}
+                <div className={`status ${tx.statusClass ? tx.statusClass.split('-')[1] : 'pending'}`}>
+                  {tx.status || 'pending'}
                 </div>
               </div>
             ))}
-            {transactions.length === 0 && (
+            {(!Array.isArray(transactions) || transactions.length === 0) && (
               <div className="no-transactions">
                 <p>No transactions yet. Connect your wallet and make a bridge transaction to see your history here.</p>
               </div>
@@ -768,386 +944,6 @@ export default function BridgePage() {
           </div>
           </div>
         </div>
-      )}
-
-      {activeTab === 'liquidity' && (
-        <div className="liquidity-content">
-          <div className="liquidity-header">
-            <h1 className="liquidity-title">Liquidity Pools</h1>
-            <p className="liquidity-subtitle">Provide liquidity and earn rewards across multiple chains</p>
-          </div>
-
-          <div className="liquidity-stats">
-            <div className="stat-card">
-              <div className="stat-icon stat-bridge">
-                <i className="fas fa-chart-line"></i>
-              </div>
-              <div className="stat-value">$2.4M</div>
-              <div className="stat-label">Total Value Locked</div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-icon stat-swap">
-                <i className="fas fa-coins"></i>
-              </div>
-              <div className="stat-value">12</div>
-              <div className="stat-label">Active Pools</div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-icon stat-lock">
-                <i className="fas fa-percentage"></i>
-              </div>
-              <div className="stat-value">15-25%</div>
-              <div className="stat-label">APR Range</div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-icon stat-unlock">
-                <i className="fas fa-users"></i>
-              </div>
-              <div className="stat-value">1,247</div>
-              <div className="stat-label">Liquidity Providers</div>
-            </div>
-          </div>
-
-          <div className="pools-grid">
-            <div className="pool-card">
-              <div className="pool-header">
-                <div className="pool-tokens">
-                  <div className="token-icon-small btc-icon">
-                    <i className="fab fa-bitcoin"></i>
-                  </div>
-                  <div className="token-icon-small stark-icon">
-                    <i className="fas fa-layer-group"></i>
-                  </div>
-                </div>
-                <div className="pool-name">
-                  <h3>BTC/tBTC</h3>
-                  <span className="pool-type">Bridge Pool</span>
-                </div>
-              </div>
-              <div className="pool-stats">
-                <div className="pool-stat">
-                  <span className="stat-label">TVL</span>
-                  <span className="stat-value">$2.1M</span>
-                </div>
-                <div className="pool-stat">
-                  <span className="stat-label">Volume 24h</span>
-                  <span className="stat-value">$89.4K</span>
-                </div>
-                <div className="pool-stat">
-                  <span className="stat-label">APR</span>
-                  <span className="stat-value">24.2%</span>
-                </div>
-              </div>
-              <div className="pool-actions">
-                <button className="add-liquidity-btn" onClick={() => openLiquidityModal({
-                  name: 'BTC/tBTC',
-                  token0: 'BTC',
-                  token1: 'tBTC',
-                  token0Icon: 'fab fa-bitcoin',
-                  token1Icon: 'fas fa-layer-group'
-                }, 'add')}>Add Liquidity</button>
-                <button className="remove-liquidity-btn" onClick={() => openLiquidityModal({
-                  name: 'BTC/tBTC',
-                  token0: 'BTC',
-                  token1: 'tBTC',
-                  token0Icon: 'fab fa-bitcoin',
-                  token1Icon: 'fas fa-layer-group'
-                }, 'remove')}>Remove</button>
-              </div>
-            </div>
-
-            <div className="pool-card">
-              <div className="pool-header">
-                <div className="pool-tokens">
-                  <div className="token-icon-small stark-icon">
-                    <i className="fas fa-layer-group"></i>
-                  </div>
-                  <div className="token-icon-small btc-icon">
-                    <i className="fab fa-bitcoin"></i>
-                  </div>
-                </div>
-                <div className="pool-name">
-                  <h3>tBTC/BTC</h3>
-                  <span className="pool-type">Reverse Bridge</span>
-                </div>
-              </div>
-              <div className="pool-stats">
-                <div className="pool-stat">
-                  <span className="stat-label">TVL</span>
-                  <span className="stat-value">$1.8M</span>
-                </div>
-                <div className="pool-stat">
-                  <span className="stat-label">Volume 24h</span>
-                  <span className="stat-value">$67.1K</span>
-                </div>
-                <div className="pool-stat">
-                  <span className="stat-label">APR</span>
-                  <span className="stat-value">21.8%</span>
-                </div>
-              </div>
-              <div className="pool-actions">
-                <button className="add-liquidity-btn" onClick={() => openLiquidityModal({
-                  name: 'tBTC/BTC',
-                  token0: 'tBTC',
-                  token1: 'BTC',
-                  token0Icon: 'fas fa-layer-group',
-                  token1Icon: 'fab fa-bitcoin',
-                  className: 'heal'
-                }, 'add')}>Add Liquidity</button>
-                <button className="remove-liquidity-btn" onClick={() => openLiquidityModal({
-                  name: 'tBTC/BTC',
-                  token0: 'tBTC',
-                  token1: 'BTC',
-                  token0Icon: 'fas fa-layer-group',
-                  token1Icon: 'fab fa-bitcoin',
-                  className: 'heal'
-                }, 'remove')}>Remove</button>
-              </div>
-            </div>
-
-            <div className="pool-card">
-              <div className="pool-header">
-                <div className="pool-tokens">
-                  <div className="token-icon-small stark-icon">
-                    <i className="fas fa-layer-group"></i>
-                  </div>
-                  <div className="token-icon-small eth-icon">
-                    <i className="fab fa-ethereum"></i>
-                  </div>
-                </div>
-                <div className="pool-name">
-                  <h3>STRK/ETH</h3>
-                  <span className="pool-type">Native Pool</span>
-                </div>
-              </div>
-              <div className="pool-stats">
-                <div className="pool-stat">
-                  <span className="stat-label">TVL</span>
-                  <span className="stat-value">$945K</span>
-                </div>
-                <div className="pool-stat">
-                  <span className="stat-label">Volume 24h</span>
-                  <span className="stat-value">$34.7K</span>
-                </div>
-                <div className="pool-stat">
-                  <span className="stat-label">APR</span>
-                  <span className="stat-value">19.5%</span>
-                </div>
-              </div>
-              <div className="pool-actions">
-                <button className="add-liquidity-btn" onClick={() => openLiquidityModal({
-                  name: 'STRK/ETH',
-                  token0: 'STRK',
-                  token1: 'ETH',
-                  token0Icon: 'fas fa-layer-group',
-                  token1Icon: 'fab fa-ethereum'
-                }, 'add')}>Add Liquidity</button>
-                <button className="remove-liquidity-btn" onClick={() => openLiquidityModal({
-                  name: 'STRK/ETH',
-                  token0: 'STRK',
-                  token1: 'ETH',
-                  token0Icon: 'fas fa-layer-group',
-                  token1Icon: 'fab fa-ethereum'
-                }, 'remove')}>Remove</button>
-              </div>
-            </div>
-
-            <div className="pool-card">
-              <div className="pool-header">
-                <div className="pool-tokens">
-                  <div className="token-icon-small btc-icon">
-                    <i className="fab fa-bitcoin"></i>
-                  </div>
-                  <div className="token-icon-small eth-icon">
-                    <i className="fab fa-ethereum"></i>
-                  </div>
-                </div>
-                <div className="pool-name">
-                  <h3>BTC/ETH</h3>
-                  <span className="pool-type">Cross-Chain</span>
-                </div>
-              </div>
-              <div className="pool-stats">
-                <div className="pool-stat">
-                  <span className="stat-label">TVL</span>
-                  <span className="stat-value">$1.3M</span>
-                </div>
-                <div className="pool-stat">
-                  <span className="stat-label">Volume 24h</span>
-                  <span className="stat-value">$52.9K</span>
-                </div>
-                <div className="pool-stat">
-                  <span className="stat-label">APR</span>
-                  <span className="stat-value">26.1%</span>
-                </div>
-              </div>
-              <div className="pool-actions">
-                <button className="add-liquidity-btn" onClick={() => openLiquidityModal({
-                  name: 'BTC/ETH',
-                  token0: 'BTC',
-                  token1: 'ETH',
-                  token0Icon: 'fab fa-bitcoin',
-                  token1Icon: 'fab fa-ethereum'
-                }, 'add')}>Add Liquidity</button>
-                <button className="remove-liquidity-btn" onClick={() => openLiquidityModal({
-                  name: 'BTC/ETH',
-                  token0: 'BTC',
-                  token1: 'ETH',
-                  token0Icon: 'fab fa-bitcoin',
-                  token1Icon: 'fab fa-ethereum'
-                }, 'remove')}>Remove</button>
-              </div>
-            </div>
-          </div>
-
-          {/* Liquidity Modal */}
-          {showLiquidityModal && selectedPool && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-              <div className="bg-gray-800 rounded-xl p-6 w-full max-w-md mx-4">
-                <div className="flex justify-between items-center mb-6">
-                  <h3 className="text-xl font-bold text-white">
-                    {liquidityAction === 'add' ? 'Add Liquidity' : 'Remove Liquidity'}
-                  </h3>
-                  <button
-                    onClick={closeLiquidityModal}
-                    className="text-gray-400 hover:text-white"
-                  >
-                    <i className="fas fa-times"></i>
-                  </button>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="text-center mb-4">
-                    <div className="flex items-center justify-center gap-2 mb-2">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white ${selectedPool.token0.toLowerCase()}-icon`}>
-                        <i className={selectedPool.token0Icon}></i>
-                      </div>
-                      <span className="text-white font-medium">{selectedPool.name}</span>
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white ${selectedPool.token1.toLowerCase()}-icon`}>
-                        <i className={selectedPool.token1Icon}></i>
-                      </div>
-                    </div>
-                  </div>
-
-                  {liquidityAction === 'add' && (
-                    <>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-2">
-                          {selectedPool.token0} Amount
-                        </label>
-                        <div className="relative">
-                          <input
-                            type="number"
-                            value={token0Amount}
-                            onChange={(e) => handleTokenAmountChange(0, e.target.value)}
-                            placeholder="0.00"
-                            className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:border-purple-500"
-                          />
-                          <span className="absolute right-3 top-3 text-gray-400">{selectedPool.token0}</span>
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-2">
-                          {selectedPool.token1} Amount
-                        </label>
-                        <div className="relative">
-                          <input
-                            type="number"
-                            value={token1Amount}
-                            onChange={(e) => handleTokenAmountChange(1, e.target.value)}
-                            placeholder="0.00"
-                            className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:border-purple-500"
-                          />
-                          <span className="absolute right-3 top-3 text-gray-400">{selectedPool.token1}</span>
-                        </div>
-                      </div>
-
-                      <div className="bg-gray-700 rounded-lg p-4">
-                        <div className="flex justify-between text-sm mb-2">
-                          <span className="text-gray-300">Pool Share</span>
-                          <span className="text-white">
-                            {token0Amount && token1Amount ? '0.01%' : '0.00%'}
-                          </span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-300">LP Tokens</span>
-                          <span className="text-white">
-                            {token0Amount && token1Amount ? (parseFloat(token0Amount) * 0.1).toFixed(4) : '0.0000'}
-                          </span>
-                        </div>
-                      </div>
-                    </>
-                  )}
-
-                  {liquidityAction === 'remove' && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-2">
-                        LP Tokens to Remove
-                      </label>
-                      <div className="relative">
-                        <input
-                          type="number"
-                          value={liquidityAmount}
-                          onChange={(e) => handleLiquidityAmountChange(e.target.value)}
-                          placeholder="0.00"
-                          className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:border-purple-500"
-                        />
-                        <span className="absolute right-3 top-3 text-gray-400">LP</span>
-                      </div>
-                      <p className="text-xs text-gray-500 mt-1">
-                        You will receive {token0Amount || '0.00'} {selectedPool.token0} and {token1Amount || '0.00'} {selectedPool.token1}
-                      </p>
-                    </div>
-                  )}
-
-                  <button
-                    onClick={handleLiquiditySubmit}
-                    className="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white py-3 rounded-lg font-medium hover:from-purple-700 hover:to-blue-700 transition-all duration-200"
-                  >
-                    {liquidityAction === 'add' ? 'Add Liquidity' : 'Remove Liquidity'}
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div className="liquidity-info">
-            <div className="info-section">
-              <h3>How Liquidity Pools Work</h3>
-              <div className="info-grid">
-                <div className="info-item">
-                  <div className="info-icon">
-                    <i className="fas fa-plus-circle"></i>
-                  </div>
-                  <div className="info-content">
-                    <h4>Add Liquidity</h4>
-                    <p>Deposit equal values of both tokens to create a liquidity pool</p>
-                  </div>
-                </div>
-                <div className="info-item">
-                  <div className="info-icon">
-                    <i className="fas fa-exchange-alt"></i>
-                  </div>
-                  <div className="info-content">
-                    <h4>Earn Fees</h4>
-                    <p>Receive a share of trading fees proportional to your liquidity contribution</p>
-                  </div>
-                </div>
-                <div className="info-item">
-                  <div className="info-icon">
-                    <i className="fas fa-coins"></i>
-                  </div>
-                  <div className="info-content">
-                    <h4>Earn Rewards</h4>
-                    <p>Get additional token rewards for providing liquidity</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       <footer>
         <p>© 2025 BitStark Bridge. All rights reserved. Use at your own risk.</p>
@@ -1155,3 +951,4 @@ export default function BridgePage() {
     </div>
   );
 }
+

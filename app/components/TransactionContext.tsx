@@ -8,7 +8,14 @@ const TransactionContext = createContext<TransactionContextType | undefined>(und
 export const useTransactions = () => {
   const context = useContext(TransactionContext);
   if (!context) {
-    throw new Error('useTransactions must be used within a TransactionProvider');
+    console.error('useTransactions must be used within a TransactionProvider');
+    // Return a safe fallback to prevent crashes
+    return {
+      transactions: [],
+      addTransaction: () => {},
+      getTransactionsByWallet: () => [],
+      clearTransactions: () => {},
+    };
   }
   return context;
 };
@@ -22,14 +29,24 @@ export const TransactionProvider: React.FC<TransactionProviderProps> = ({ childr
 
   // Load transactions from localStorage on mount
   useEffect(() => {
-    const storedTransactions = localStorage.getItem('bitstarks_transactions');
-    if (storedTransactions) {
-      try {
+    try {
+      const storedTransactions = localStorage.getItem('bitstarks_transactions');
+      if (storedTransactions) {
         const parsed = JSON.parse(storedTransactions);
-        setTransactions(parsed);
-      } catch (error) {
-        console.error('Failed to parse stored transactions:', error);
+        if (Array.isArray(parsed)) {
+          // Validate that each transaction has required properties
+          const validTransactions = parsed.filter(tx =>
+            tx && typeof tx === 'object' && tx.id && tx.type
+          );
+          setTransactions(validTransactions);
+        } else {
+          console.warn('Stored transactions is not an array, resetting to empty');
+          setTransactions([]);
+        }
       }
+    } catch (error) {
+      console.error('Failed to parse stored transactions:', error);
+      setTransactions([]);
     }
   }, []);
 
@@ -39,6 +56,17 @@ export const TransactionProvider: React.FC<TransactionProviderProps> = ({ childr
   }, [transactions]);
 
   const addTransaction = (transaction: Omit<Transaction, 'id' | 'date'>) => {
+    // Validate required fields
+    if (!transaction || typeof transaction !== 'object') {
+      console.error('Invalid transaction object provided to addTransaction');
+      return;
+    }
+
+    if (!transaction.type || !transaction.amount || !transaction.walletAddress) {
+      console.error('Transaction missing required fields:', transaction);
+      return;
+    }
+
     const newTransaction: Transaction = {
       ...transaction,
       id: Date.now().toString() + Math.random().toString(36).substr(2, 9),

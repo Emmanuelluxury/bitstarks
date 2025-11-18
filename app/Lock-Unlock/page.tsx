@@ -5,6 +5,8 @@ import Header from '../components/Header';
 import Footer from '../components/Footer';
 import WalletModal from '../components/WalletModal';
 import { useTransactions } from '../components/TransactionContext';
+import { initStarknet, lock, unlock } from '../utils/starknet';
+import { initBitcoinBridge } from '../utils/bitcoinBridge';
 import './styles.css';
 
 export default function LockUnlockPage() {
@@ -21,6 +23,8 @@ export default function LockUnlockPage() {
    const [receivedAmount, setReceivedAmount] = useState(0);
    const [lockFee, setLockFee] = useState(0);
    const [estimatedTime, setEstimatedTime] = useState('~0 minutes');
+   const [isProcessing, setIsProcessing] = useState(false);
+   const [actionError, setActionError] = useState<string | null>(null);
 
   // Fee rates (0.05% for both lock and unlock)
   const LOCK_FEE_RATE = 0.0005;
@@ -180,8 +184,35 @@ export default function LockUnlockPage() {
     setAmount('1.2543');
   };
 
-  const handleAction = () => {
-    if (connectedAddress) {
+  const handleAction = async () => {
+    if (!connectedAddress || !amount || parseFloat(amount) <= 0) {
+      setActionError('Please connect wallet and enter a valid amount');
+      return;
+    }
+
+    setIsProcessing(true);
+    setActionError(null);
+
+    try {
+      // Initialize Starknet connection if needed
+      await initStarknet();
+
+      const amountBigInt = BigInt(Math.floor(parseFloat(amount) * 100000000)).toString(); // Convert to satoshis as string
+
+      if (mode === 'lock') {
+        // Call lock function
+        await lock('BTC', amountBigInt, '1', address); // dst_chain_id = 1 for Starknet
+        console.log('Lock transaction completed');
+      } else {
+        // Call unlock function
+        await unlock('tBTC', address, amountBigInt);
+        console.log('Unlock transaction completed');
+      }
+
+      // Also initialize WASM bridge (for future use)
+      await initBitcoinBridge();
+
+      // Add transaction to history
       const transactionType = mode === 'lock' ? 'Lock' : 'Unlock';
       addTransaction({
         type: transactionType,
@@ -210,9 +241,18 @@ export default function LockUnlockPage() {
           estimatedTime
         }
       });
+
+      // Reset form
+      setAmount('');
+      setReceivedAmount(0);
+      setLockFee(0);
+      setEstimatedTime('~0 minutes');
+    } catch (error: any) {
+      console.error(`${mode} failed:`, error);
+      setActionError(error.message || `${mode} transaction failed`);
+    } finally {
+      setIsProcessing(false);
     }
-    // Mock action functionality
-    console.log(`${mode === 'lock' ? 'Locking' : 'Unlocking'} ${amount} BTC`);
   };
 
   const connectWallet = () => {
@@ -414,8 +454,18 @@ export default function LockUnlockPage() {
                 </div>
               </div>
 
-              <button className={`action-button ${mode === 'unlock' ? 'unlock' : ''}`} onClick={handleAction}>
-                <i className={`fas fa-${mode === 'lock' ? 'lock' : 'unlock'}`}></i> {mode === 'lock' ? 'Lock' : 'Unlock'} Bitcoin
+              {actionError && (
+                <div className="error-message" style={{ color: 'red', marginBottom: '10px', textAlign: 'center' }}>
+                  {actionError}
+                </div>
+              )}
+              <button
+                className={`action-button ${mode === 'unlock' ? 'unlock' : ''}`}
+                onClick={handleAction}
+                disabled={isProcessing}
+              >
+                <i className={`fas fa-${mode === 'lock' ? 'lock' : 'unlock'}`}></i>
+                {isProcessing ? 'Processing...' : `${mode === 'lock' ? 'Lock' : 'Unlock'} Bitcoin`}
               </button>
 
               <div className="lock-details">

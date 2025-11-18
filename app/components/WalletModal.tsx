@@ -25,13 +25,18 @@ declare global {
 interface WalletModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConnectWallet: (type: string, address?: string) => void;
+  onConnectWallet: (type: string, address?: string, network?: 'mainnet' | 'testnet') => void;
   network?: 'bitcoin' | 'starknet';
   showSections?: boolean;
+  bitcoinNetwork?: 'mainnet' | 'testnet';
 }
 
-export default function WalletModal({ isOpen, onClose, onConnectWallet, network, showSections }: WalletModalProps) {
+export default function WalletModal({ isOpen, onClose, onConnectWallet, network, showSections, bitcoinNetwork = 'mainnet' }: WalletModalProps) {
   const [connecting, setConnecting] = useState<string | null>(null);
+
+  // Debug log when component mounts/updates
+  console.log(`🔧 WalletModal rendered with bitcoinNetwork:`, bitcoinNetwork);
+  console.log(`🔧 WalletModal props:`, { isOpen, network, showSections, bitcoinNetwork });
 
   const isValidEthereumAddress = (address: string): boolean => {
     return /^0x[a-fA-F0-9]{40}$/.test(address);
@@ -81,16 +86,6 @@ export default function WalletModal({ isOpen, onClose, onConnectWallet, network,
       type: 'unisat'
     },
     {
-      name: 'Phantom',
-      logo: 'https://www.google.com/s2/favicons?domain=phantom.com&sz=128',
-      type: 'phantom'
-    },
-    {
-      name: 'Trust Wallet',
-      logo: 'https://www.google.com/s2/favicons?domain=trustwallet.com&sz=128',
-      type: 'trustwallet'
-    },
-    {
       name: 'Ready',
       logo: 'https://www.google.com/s2/favicons?domain=argent.xyz&sz=128',
       type: 'ready'
@@ -107,7 +102,7 @@ export default function WalletModal({ isOpen, onClose, onConnectWallet, network,
     }
   ];
 
-  const wallets = network ? (network === 'starknet' ? allWallets.slice(4) : allWallets.slice(0, 4)) : allWallets;
+  const wallets = network ? (network === 'starknet' ? allWallets.slice(2) : allWallets.slice(0, 2)) : allWallets;
 
   const handleWalletClick = async (walletType: string) => {
     setConnecting(walletType);
@@ -119,7 +114,25 @@ export default function WalletModal({ isOpen, onClose, onConnectWallet, network,
           if (typeof window !== 'undefined' && window.starknet_argentX) {
             await window.starknet_argentX.enable();
             const address = window.starknet_argentX.selectedAddress;
-            onConnectWallet(walletType, address);
+
+            // Detect network from Ready wallet
+            let detectedNetwork: 'mainnet' | 'testnet' = 'mainnet';
+            try {
+              const chainId = await window.starknet_argentX.provider.getChainId();
+              console.log('Ready wallet chainId detected:', chainId);
+              // Starknet mainnet: 0x534e5f4d41494e (SN_MAIN), testnet: 0x534e5f474f45524c49 (SN_GOERLI)
+              if (chainId === '0x534e5f474f45524c49' || chainId === 'SN_GOERLI' || chainId === '0x534e5f5345504f4c4941') {
+                detectedNetwork = 'testnet';
+              } else if (chainId === '0x534e5f4d41494e' || chainId === 'SN_MAIN') {
+                detectedNetwork = 'mainnet';
+              } else {
+                console.warn('Unknown Ready wallet chainId:', chainId);
+              }
+            } catch (networkError) {
+              console.warn('Could not detect Ready wallet network, defaulting to mainnet:', networkError);
+            }
+
+            onConnectWallet(walletType, address, detectedNetwork);
           } else {
             throw new Error('Ready wallet not found');
           }
@@ -129,7 +142,25 @@ export default function WalletModal({ isOpen, onClose, onConnectWallet, network,
           if (typeof window !== 'undefined' && window.starknet_braavos) {
             await window.starknet_braavos.enable();
             const address = window.starknet_braavos.selectedAddress;
-            onConnectWallet(walletType, address);
+
+            // Detect network from Braavos wallet
+            let detectedNetwork: 'mainnet' | 'testnet' = 'mainnet';
+            try {
+              const chainId = await window.starknet_braavos.provider.getChainId();
+              console.log('Braavos wallet chainId detected:', chainId);
+              // Starknet mainnet: 0x534e5f4d41494e (SN_MAIN), testnet: 0x534e5f474f45524c49 (SN_GOERLI)
+              if (chainId === '0x534e5f474f45524c49' || chainId === 'SN_GOERLI' || chainId === '0x534e5f5345504f4c4941') {
+                detectedNetwork = 'testnet';
+              } else if (chainId === '0x534e5f4d41494e' || chainId === 'SN_MAIN') {
+                detectedNetwork = 'mainnet';
+              } else {
+                console.warn('Unknown Braavos wallet chainId:', chainId);
+              }
+            } catch (networkError) {
+              console.warn('Could not detect Braavos wallet network, defaulting to mainnet:', networkError);
+            }
+
+            onConnectWallet(walletType, address, detectedNetwork);
           } else {
             throw new Error('Braavos wallet not found');
           }
@@ -186,12 +217,29 @@ export default function WalletModal({ isOpen, onClose, onConnectWallet, network,
               throw new Error('Received address is not a valid Ethereum address');
             }
 
+            // Step 5: Detect network from MetaMask
+            let detectedNetwork: 'mainnet' | 'testnet' = 'mainnet';
+            try {
+              const chainId = await (metaMaskProvider as any).request({ method: 'eth_chainId' });
+              console.log('MetaMask chainId detected:', chainId);
+              // Starknet mainnet: 0x534e5f4d41494e (SN_MAIN), testnet: 0x534e5f474f45524c49 (SN_GOERLI), sepolia: 0x534e5f5345504f4c4941
+              if (chainId === '0x534e5f474f45524c49' || chainId === 'SN_GOERLI' || chainId === '0x534e5f5345504f4c4941') {
+                detectedNetwork = 'testnet';
+              } else if (chainId === '0x534e5f4d41494e' || chainId === 'SN_MAIN') {
+                detectedNetwork = 'mainnet';
+              } else {
+                console.warn('Unknown MetaMask chainId:', chainId);
+              }
+            } catch (networkError) {
+              console.warn('Could not detect MetaMask network, defaulting to mainnet:', networkError);
+            }
+
             console.log('✅ Successfully connected to MetaMask with address:', address);
 
-            // Step 5: Set up event listeners for account/chain changes
+            // Step 6: Set up event listeners for account/chain changes
             setupMetaMaskEventListeners();
 
-            onConnectWallet(walletType, address);
+            onConnectWallet(walletType, address, detectedNetwork);
 
           } catch (error: any) {
             console.error('💥 MetaMask connection failed:', error);
@@ -219,34 +267,184 @@ export default function WalletModal({ isOpen, onClose, onConnectWallet, network,
           break;
 
         case 'xverse':
-          // Use Sats Connect for proper Xverse integration
-          try {
-            const response = await getAddress({
-              payload: {
-                purposes: [AddressPurpose.Ordinals, AddressPurpose.Payment],
-                message: 'Connect your Xverse Wallet to this DApp',
-                network: {
-                  type: BitcoinNetworkType.Mainnet,
-                },
-              },
-              onFinish: (response) => {
-                const address = response.addresses[0].address;
-                console.log('✅ Connected Xverse address:', address);
-                onConnectWallet(walletType, address);
-                setConnecting(null);
-              },
-              onCancel: () => {
-                console.warn('❌ User canceled Xverse connection');
-                alert('Connection canceled. Please try again.');
-                setConnecting(null);
-              },
-            });
-          } catch (error) {
-            console.error('Xverse connection failed:', error);
-            alert('Failed to connect to Xverse Wallet. Make sure it is installed and unlocked.');
-            setConnecting(null);
-          }
-          break;
+            // Use Sats Connect for proper Xverse integration - only try the app's current network
+            try {
+              console.log(`🔗 Connecting to Xverse, app network mode: ${bitcoinNetwork}`);
+              console.log(`🔧 bitcoinNetwork prop value:`, bitcoinNetwork);
+              console.log(`🔧 BitcoinNetworkType enum values:`, BitcoinNetworkType);
+
+              // Only try the network that matches the app's current mode
+              const targetNetwork = bitcoinNetwork === 'testnet' ? BitcoinNetworkType.Testnet : BitcoinNetworkType.Mainnet;
+              const targetNetworkName = bitcoinNetwork === 'testnet' ? 'TESTNET' : 'MAINNET';
+
+              console.log(`🎯 Connecting Xverse to ${targetNetworkName} network only`);
+              console.log(`🎯 targetNetwork:`, targetNetwork, `targetNetworkName:`, targetNetworkName);
+              console.log(`🎯 BitcoinNetworkType.Testnet:`, BitcoinNetworkType.Testnet);
+              console.log(`🎯 BitcoinNetworkType.Mainnet:`, BitcoinNetworkType.Mainnet);
+
+              // Try with enum first, if it fails, try with string values
+              try {
+                await getAddress({
+                  payload: {
+                    purposes: [AddressPurpose.Payment], // Only request Payment address for bridge transactions
+                    message: `Connect your Xverse Wallet to this DApp (${targetNetworkName})`,
+                    network: {
+                      type: targetNetwork,
+                    },
+                  },
+                  onFinish: (response) => {
+                    console.log(`📋 getAddress onFinish called with response:`, response);
+                    console.log(`📋 Full response structure:`, JSON.stringify(response, null, 2));
+        
+                    // Handle different possible response structures - prioritize Payment address
+                    let address = null;
+                    if (response && response.addresses && Array.isArray(response.addresses) && response.addresses.length > 0) {
+                      // Find the Payment address specifically (not Ordinals)
+                      const paymentAddress = Array.isArray(response.addresses) ? response.addresses.find((addr: any) =>
+                        addr && typeof addr === 'object' && (
+                        addr.purpose === AddressPurpose.Payment ||
+                        addr.purpose === 'payment' ||
+                        addr.addressType === 'p2pkh' ||
+                        addr.addressType === 'p2sh' ||
+                        addr.addressType === 'p2wpkh')
+                      ) : null;
+
+                      if (paymentAddress) {
+                        address = paymentAddress.address || paymentAddress;
+                        console.log(`💰 Found Payment address:`, paymentAddress);
+                      } else {
+                        // Fallback to first address if no Payment address found
+                        const firstAddress = response.addresses[0];
+                        address = firstAddress.address || firstAddress;
+                        console.log(`⚠️ No Payment address found, using first address:`, firstAddress);
+                      }
+                    }
+        
+                    console.log(`✅ Connected Xverse Payment address on ${targetNetworkName}:`, address);
+                    console.log(`🔍 Address type:`, typeof address, `Address value:`, address);
+        
+                    // If address is still not a string, try to extract it differently
+                    if (typeof address !== 'string') {
+                      if (Array.isArray(address) && address.length > 0) {
+                        address = address[0];
+                      } else if (typeof address === 'object' && address !== null) {
+                        // Try common address field names
+                        address = address.address || Object.values(address)[0];
+                      }
+                    }
+        
+                    console.log(`🔄 Final processed address:`, address);
+                    console.log(`🔍 Final address type:`, typeof address, `Final address length:`, typeof address === 'string' ? address.length : 'N/A');
+        
+                    // Validate the address format
+                    if (!address || typeof address !== 'string' || address.length < 20) {
+                      console.error(`❌ Invalid Payment address received from Xverse:`, address);
+                      console.error(`❌ Address validation failed. Type:`, typeof address, `Length:`, address?.length);
+                      alert('Invalid Payment address received from Xverse wallet. Please ensure your wallet is properly connected and try again.');
+                      setConnecting(null);
+                      return;
+                    }
+        
+                    const detectedNetwork = targetNetworkName.toLowerCase() as 'mainnet' | 'testnet';
+                    onConnectWallet(walletType, address, detectedNetwork);
+                    setConnecting(null);
+                  },
+                  onCancel: () => {
+                    console.warn(`❌ User canceled Xverse connection on ${targetNetworkName}`);
+                    alert('Connection canceled. Please try again.');
+                    setConnecting(null);
+                  },
+                });
+              } catch (enumError: any) {
+                console.warn(`⚠️ Enum-based connection failed, trying string values:`, enumError);
+
+                // Fallback: try with string values instead of enum
+                const stringNetwork = bitcoinNetwork === 'testnet' ? 'testnet' : 'mainnet';
+                console.log(`🔄 Trying with string network value:`, stringNetwork);
+
+                await getAddress({
+                  payload: {
+                    purposes: [AddressPurpose.Payment], // Only request Payment address for bridge transactions
+                    message: `Connect your Xverse Wallet to this DApp (${targetNetworkName})`,
+                    network: {
+                      type: stringNetwork as any,
+                    },
+                  },
+                  onFinish: (response) => {
+                    console.log(`📋 getAddress onFinish called with response (string fallback):`, response);
+                    console.log(`📋 Full response structure (string fallback):`, JSON.stringify(response, null, 2));
+
+                    // Handle different possible response structures for string fallback - prioritize Payment address
+                    let address = null;
+                    if (response && response.addresses && Array.isArray(response.addresses) && response.addresses.length > 0) {
+                      // Find the Payment address specifically (not Ordinals)
+                      const paymentAddress = Array.isArray(response.addresses) ? response.addresses.find((addr: any) =>
+                        addr && typeof addr === 'object' && (
+                        addr.purpose === AddressPurpose.Payment ||
+                        addr.purpose === 'payment' ||
+                        addr.addressType === 'p2pkh' ||
+                        addr.addressType === 'p2sh' ||
+                        addr.addressType === 'p2wpkh')
+                      ) : null;
+
+                      if (paymentAddress) {
+                        address = paymentAddress.address || paymentAddress;
+                        console.log(`💰 Found Payment address (string fallback):`, paymentAddress);
+                      } else {
+                        // Fallback to first address if no Payment address found
+                        const firstAddress = response.addresses[0];
+                        address = firstAddress.address || firstAddress;
+                        console.log(`⚠️ No Payment address found (string fallback), using first address:`, firstAddress);
+                      }
+                    }
+
+                    console.log(`✅ Connected Xverse Payment address on ${targetNetworkName} (string fallback):`, address);
+                    console.log(`🔍 Address type (string fallback):`, typeof address, `Address value:`, address);
+
+                    // If address is still not a string, try to extract it differently
+                    if (typeof address !== 'string') {
+                      if (Array.isArray(address) && address.length > 0) {
+                        address = address[0];
+                      } else if (typeof address === 'object' && address !== null) {
+                        address = address.address || Object.values(address)[0];
+                      }
+                    }
+
+                    console.log(`🔄 Final processed address (string fallback):`, address);
+                    console.log(`🔍 Final address type (string fallback):`, typeof address, `Final address length:`, typeof address === 'string' ? address.length : 'N/A');
+
+                    // Validate the address format
+                    if (!address || typeof address !== 'string' || address.length < 20) {
+                      console.error(`❌ Invalid Payment address received from Xverse (string fallback):`, address);
+                      alert('Invalid Payment address received from Xverse wallet. Please ensure your wallet is properly connected and try again.');
+                      setConnecting(null);
+                      return;
+                    }
+
+                    const detectedNetwork = targetNetworkName.toLowerCase() as 'mainnet' | 'testnet';
+                    onConnectWallet(walletType, address, detectedNetwork);
+                    setConnecting(null);
+                  },
+                  onCancel: () => {
+                    console.warn(`❌ User canceled Xverse connection on ${targetNetworkName} (string fallback)`);
+                    alert('Connection canceled. Please try again.');
+                    setConnecting(null);
+                  },
+                });
+              }
+            } catch (error: any) {
+              console.error(`❌ Xverse connection failed on ${bitcoinNetwork}:`, error);
+              console.error(`❌ Error details:`, error.message, error.code, error);
+
+              // Provide specific error message for network mismatch
+              if (error.message && error.message.includes('network')) {
+                alert(`Network mismatch error. Please ensure your Xverse wallet is set to ${bitcoinNetwork} and try again.`);
+              } else {
+                alert(`Failed to connect to Xverse Wallet on ${bitcoinNetwork}. Please ensure your wallet is unlocked and set to the correct network.`);
+              }
+              setConnecting(null);
+            }
+            break;
 
         case 'unisat':
           // Unisat wallet integration - check for the wallet object
@@ -256,7 +454,36 @@ export default function WalletModal({ isOpen, onClose, onConnectWallet, network,
               // Request accounts from Unisat
               const accounts = await unisat.requestAccounts();
               const address = accounts[0]; // Get the first account
-              onConnectWallet(walletType, address);
+
+              console.log(`✅ Connected Unisat address:`, address);
+              console.log(`🔍 Unisat address type:`, typeof address, `Address length:`, address?.length);
+
+              // Validate the address format
+              if (!address || typeof address !== 'string' || address.length < 20) {
+                console.error(`❌ Invalid address received from Unisat:`, address);
+                alert('Invalid address received from Unisat wallet. Please try again.');
+                setConnecting(null);
+                return;
+              }
+
+              // Detect network from Unisat wallet
+              let detectedNetwork: 'mainnet' | 'testnet' = 'mainnet';
+              try {
+                const network = await unisat.getNetwork();
+                console.log('Unisat network detected:', network);
+                // Unisat returns 'livenet' for mainnet, 'testnet' for testnet
+                if (network === 'testnet' || network === 'regtest') {
+                  detectedNetwork = 'testnet';
+                } else if (network === 'livenet') {
+                  detectedNetwork = 'mainnet';
+                } else {
+                  console.warn('Unknown Unisat network:', network);
+                }
+              } catch (networkError) {
+                console.warn('Could not detect Unisat network, defaulting to mainnet:', networkError);
+              }
+
+              onConnectWallet(walletType, address, detectedNetwork);
             } catch (error) {
               console.error('Unisat connection failed:', error);
               throw new Error('Failed to connect to Unisat wallet. Please unlock your wallet and try again.');
@@ -455,7 +682,7 @@ export default function WalletModal({ isOpen, onClose, onConnectWallet, network,
             <>
               <div className="wallet-section">
                 <h4 className="section-title">Bitcoin Wallets</h4>
-                {wallets.slice(0, 4).map((wallet, index) => (
+                {wallets.slice(0, 2).map((wallet, index) => (
                   <div
                     key={index}
                     className={`wallet-option ${connecting === wallet.type ? 'connecting' : ''}`}
@@ -471,9 +698,9 @@ export default function WalletModal({ isOpen, onClose, onConnectWallet, network,
               </div>
               <div className="wallet-section">
                 <h4 className="section-title">Starknet Wallets</h4>
-                {wallets.slice(4).map((wallet, index) => (
+                {wallets.slice(2).map((wallet, index) => (
                   <div
-                    key={index + 4}
+                    key={index + 2}
                     className={`wallet-option ${connecting === wallet.type ? 'connecting' : ''}`}
                     onClick={() => handleWalletClick(wallet.type)}
                   >

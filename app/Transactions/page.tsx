@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import { useTransactions } from '../components/TransactionContext';
+import { initStarknet, getUserRecentTransactions } from '../utils/starknet';
 import './styles.css';
 
 export default function TransactionsPage() {
@@ -19,6 +20,8 @@ export default function TransactionsPage() {
     const [currentPage, setCurrentPage] = useState(1);
     const [userTransactions, setUserTransactions] = useState<any[]>([]);
     const [activeTab, setActiveTab] = useState<'transactions' | 'tokens'>('transactions');
+    const [isLoadingTransactions, setIsLoadingTransactions] = useState(false);
+    const [transactionError, setTransactionError] = useState<string | null>(null);
 
     // Handle URL parameter for tab switching
     useEffect(() => {
@@ -39,8 +42,8 @@ export default function TransactionsPage() {
       fromAsset: 'BTC',
       fromAssetIcon: 'fab fa-bitcoin',
       fromAssetClass: 'asset-btc',
-      toAsset: 'tBTC',
-      toAssetIcon: 'fas fa-layer-group',
+      toAsset: 'STRK',
+      toAssetIcon: 'fab fa-ethereum',
       toAssetClass: 'asset-stark',
       fromNetwork: 'Bitcoin',
       fromNetworkIcon: 'fab fa-bitcoin',
@@ -50,6 +53,28 @@ export default function TransactionsPage() {
       toNetworkClass: 'network-stark',
       amount: '0.25 BTC',
       date: '2 hours ago',
+      status: 'completed',
+      statusClass: 'status-completed'
+    },
+    {
+      id: 6,
+      type: 'Bridge',
+      typeIcon: 'fas fa-bridge',
+      typeClass: 'type-bridge',
+      fromAsset: 'STRK',
+      fromAssetIcon: 'fab fa-ethereum',
+      fromAssetClass: 'asset-stark',
+      toAsset: 'BTC',
+      toAssetIcon: 'fab fa-bitcoin',
+      toAssetClass: 'asset-btc',
+      fromNetwork: 'Starknet',
+      fromNetworkIcon: 'fas fa-layer-group',
+      fromNetworkClass: 'network-stark',
+      toNetwork: 'Bitcoin',
+      toNetworkIcon: 'fab fa-bitcoin',
+      toNetworkClass: 'network-btc',
+      amount: '0.3 STRK',
+      date: '4 hours ago',
       status: 'completed',
       statusClass: 'status-completed'
     },
@@ -161,6 +186,37 @@ export default function TransactionsPage() {
   const typeFilters = ['All', 'Bridge', 'Swap', 'Lock/Unlock'];
   const statusFilters = ['All', 'Completed', 'Pending', 'Failed'];
 
+  // Helper functions for transaction mapping
+  const mapTransactionType = (contractType: string) => {
+    const typeMap: {[key: string]: string} = {
+      'Deposit': 'Bridge',
+      'Withdraw': 'Bridge',
+      'Lock': 'Lock',
+      'Unlock': 'Unlock',
+      'BridgeBTCToToken': 'Bridge',
+      'BridgeTokenToBTC': 'Bridge',
+      'SwapTokenToToken': 'Swap',
+      'Send': 'Bridge',
+      'Receive': 'Bridge'
+    };
+    return typeMap[contractType] || 'Bridge';
+  };
+
+  const getTransactionTypeIcon = (contractType: string) => {
+    const iconMap: {[key: string]: string} = {
+      'Deposit': 'fas fa-bridge',
+      'Withdraw': 'fas fa-bridge',
+      'Lock': 'fas fa-lock',
+      'Unlock': 'fas fa-unlock',
+      'BridgeBTCToToken': 'fas fa-bridge',
+      'BridgeTokenToBTC': 'fas fa-bridge',
+      'SwapTokenToToken': 'fas fa-exchange-alt',
+      'Send': 'fas fa-paper-plane',
+      'Receive': 'fas fa-inbox'
+    };
+    return iconMap[contractType] || 'fas fa-bridge';
+  };
+
   const handleTypeFilter = (filter: string) => {
     setActiveTypeFilter(filter);
   };
@@ -181,14 +237,78 @@ export default function TransactionsPage() {
 
   // Update user transactions when wallet connects
   useEffect(() => {
-    if (connectedWallet) {
-      // Mock wallet address for demo - in real app this would come from wallet connection
-      const mockWalletAddress = '0x742d35Cc6634C0532925a3b844Bc454e4438f44e';
-      const transactions = getTransactionsByWallet(mockWalletAddress);
-      setUserTransactions(transactions);
-    } else {
-      setUserTransactions([]);
-    }
+    const fetchContractTransactions = async () => {
+      if (connectedWallet) {
+        setIsLoadingTransactions(true);
+        setTransactionError(null);
+
+        try {
+          // Initialize Starknet connection
+          await initStarknet();
+
+          // Mock wallet address for demo - in real app this would come from wallet connection
+          const mockWalletAddress = '0x742d35Cc6634C0532925a3b844Bc454e4438f44e';
+
+          // Try to fetch from contract first
+          try {
+            const contractTransactions = await getUserRecentTransactions(mockWalletAddress, 50);
+            console.log('Fetched transactions from contract:', contractTransactions);
+
+            // Convert contract transactions to app format
+            const formattedTransactions = contractTransactions.map((tx: any, index: number) => ({
+              id: index + 1,
+              type: mapTransactionType(tx.transaction_type),
+              typeIcon: getTransactionTypeIcon(tx.transaction_type),
+              typeClass: `type-${tx.transaction_type.toLowerCase()}`,
+              fromAsset: tx.token || 'BTC',
+              fromAssetIcon: 'fab fa-bitcoin',
+              fromAssetClass: 'asset-btc',
+              toAsset: tx.token || 'tBTC',
+              toAssetIcon: 'fas fa-layer-group',
+              toAssetClass: 'asset-stark',
+              fromNetwork: 'Bitcoin',
+              fromNetworkIcon: 'fab fa-bitcoin',
+              fromNetworkClass: 'network-btc',
+              toNetwork: 'Starknet',
+              toNetworkIcon: 'fas fa-layer-group',
+              toNetworkClass: 'network-stark',
+              amount: `${(Number(tx.amount) / 100000000).toFixed(8)} BTC`,
+              date: new Date(tx.timestamp * 1000).toLocaleString(),
+              status: 'completed',
+              statusClass: 'status-completed',
+              walletAddress: mockWalletAddress,
+              txHash: `0x${Math.random().toString(16).substr(2, 64)}`,
+              details: {
+                fee: '0.0001 BTC',
+                receivedAmount: `${(Number(tx.amount) / 100000000).toFixed(8)} BTC`,
+                estimatedTime: '~10 minutes'
+              }
+            }));
+
+            setUserTransactions(formattedTransactions);
+          } catch (contractError) {
+            console.warn('Failed to fetch from contract, using context transactions:', contractError);
+            // Fallback to context transactions
+            const transactions = getTransactionsByWallet(mockWalletAddress);
+            setUserTransactions(transactions);
+          }
+        } catch (error: any) {
+          console.error('Failed to fetch transactions:', error);
+          setTransactionError('Failed to load transactions from blockchain');
+          // Fallback to context transactions
+          const mockWalletAddress = '0x742d35Cc6634C0532925a3b844Bc454e4438f44e';
+          const transactions = getTransactionsByWallet(mockWalletAddress);
+          setUserTransactions(transactions);
+        } finally {
+          setIsLoadingTransactions(false);
+        }
+      } else {
+        setUserTransactions([]);
+        setTransactionError(null);
+      }
+    };
+
+    fetchContractTransactions();
   }, [connectedWallet, getTransactionsByWallet]);
 
   // Filtered and searched transactions
@@ -330,8 +450,16 @@ export default function TransactionsPage() {
         <div className="transactions-container">
           <div className="transactions-header">
             <h2 className="transactions-title">Recent Transactions</h2>
-            <div className="transactions-count">Showing {paginatedTransactions.length} of {filteredTransactions.length} transactions</div>
+            <div className="transactions-count">
+              {isLoadingTransactions ? 'Loading transactions...' : `Showing ${paginatedTransactions.length} of ${filteredTransactions.length} transactions`}
+            </div>
           </div>
+
+          {transactionError && (
+            <div className="error-message" style={{ color: 'red', marginBottom: '20px', textAlign: 'center', padding: '10px', backgroundColor: '#fee', borderRadius: '5px' }}>
+              {transactionError}
+            </div>
+          )}
 
           <table className="transactions-table">
             <thead>

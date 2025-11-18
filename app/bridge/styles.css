@@ -137,6 +137,8 @@
             justify-content: space-between;
             align-items: center;
             margin-bottom: 25px;
+            flex-wrap: wrap;
+            gap: 15px;
         }
 
         .card-title {
@@ -145,6 +147,20 @@
         }
 
         .direction-toggle {
+            display: flex;
+            background: var(--darker);
+            border-radius: var(--border-radius);
+            padding: 5px;
+            position: relative;
+        }
+
+        .network-mode-selector {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .mode-toggle {
             display: flex;
             background: var(--darker);
             border-radius: var(--border-radius);
@@ -163,6 +179,11 @@
 
         .toggle-active {
             background: var(--primary);
+        }
+
+        .toggle-option.switching {
+            opacity: 0.6;
+            pointer-events: none;
         }
 
         .network-selector {

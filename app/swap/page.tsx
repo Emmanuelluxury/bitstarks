@@ -7,6 +7,8 @@ import WalletModal from '../components/WalletModal';
 import { useTransactions } from '../components/TransactionContext';
 import { createPublicClient, http, formatUnits } from 'viem';
 import { mainnet } from 'viem/chains';
+import { initStarknet, swapTokenToToken } from '../utils/starknet';
+import { initBitcoinBridge, swapTokenToToken as wasmSwapTokenToToken } from '../utils/bitcoinBridge';
 import './styles.css';
 
 export default function SwapPage() {
@@ -31,20 +33,33 @@ export default function SwapPage() {
   const [networkType, setNetworkType] = useState<'from' | 'to'>('from');
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [realBalances, setRealBalances] = useState<{[key: string]: number}>({});
+  const [isSwapping, setIsSwapping] = useState(false);
+  const [swapError, setSwapError] = useState<string | null>(null);
 
   // Calculate dynamic stats based on transactions
   const stats = useMemo(() => {
-    const bridgeCount = transactions.filter(tx => tx.type === 'Bridge').length;
-    const swapCount = transactions.filter(tx => tx.type === 'Swap').length;
-    const lockCount = transactions.filter(tx => tx.type === 'Lock').length;
-    const unlockCount = transactions.filter(tx => tx.type === 'Unlock').length;
+    try {
+      const safeTransactions = Array.isArray(transactions) ? transactions : [];
+      const bridgeCount = safeTransactions.filter(tx => tx && tx.type === 'Bridge').length;
+      const swapCount = safeTransactions.filter(tx => tx && tx.type === 'Swap').length;
+      const lockCount = safeTransactions.filter(tx => tx && tx.type === 'Lock').length;
+      const unlockCount = safeTransactions.filter(tx => tx && tx.type === 'Unlock').length;
 
-    return [
-      { icon: 'fas fa-bridge', label: 'Bridge Transactions', value: bridgeCount.toString(), color: 'stat-bridge' },
-      { icon: 'fas fa-exchange-alt', label: 'Swap Transactions', value: swapCount.toString(), color: 'stat-swap' },
-      { icon: 'fas fa-lock', label: 'Lock Transactions', value: '15', color: 'stat-lock' },
-      { icon: 'fas fa-unlock', label: 'Unlock Transactions', value: '8', color: 'stat-unlock' }
-    ];
+      return [
+        { icon: 'fas fa-bridge', label: 'Bridge Transactions', value: bridgeCount.toString(), color: 'stat-bridge' },
+        { icon: 'fas fa-exchange-alt', label: 'Swap Transactions', value: swapCount.toString(), color: 'stat-swap' },
+        { icon: 'fas fa-lock', label: 'Lock Transactions', value: '15', color: 'stat-lock' },
+        { icon: 'fas fa-unlock', label: 'Unlock Transactions', value: '8', color: 'stat-unlock' }
+      ];
+    } catch (error) {
+      console.error('Error calculating stats:', error);
+      return [
+        { icon: 'fas fa-bridge', label: 'Bridge Transactions', value: '0', color: 'stat-bridge' },
+        { icon: 'fas fa-exchange-alt', label: 'Swap Transactions', value: '0', color: 'stat-swap' },
+        { icon: 'fas fa-lock', label: 'Lock Transactions', value: '15', color: 'stat-lock' },
+        { icon: 'fas fa-unlock', label: 'Unlock Transactions', value: '8', color: 'stat-unlock' }
+      ];
+    }
   }, [transactions]);
 
   const networks = [
@@ -54,6 +69,11 @@ export default function SwapPage() {
     { id: 'arbitrum', name: 'Arbitrum', icon: 'fas fa-arrows-spin', color: 'network-arbitrum' },
     { id: 'starknet', name: 'Starknet', icon: 'fas fa-code-branch', color: 'network-starknet' }
   ];
+
+  // Ensure networks is always an array
+  if (!Array.isArray(networks)) {
+    console.error('Networks is not an array:', networks);
+  }
 
   // Dynamic tokens based on selected network
   const getTokensForNetwork = (networkId: string) => {
@@ -81,10 +101,23 @@ export default function SwapPage() {
         { symbol: 'ETH', name: 'Ethereum', icon: 'fab fa-ethereum', color: 'eth', balance: '0.543', usd: '$1,854.36' }
       ]
     };
-    return networkTokenMap[networkId as keyof typeof networkTokenMap] || networkTokenMap.ethereum;
+
+    // Ensure networkId is valid and return tokens array
+    if (!networkId || typeof networkId !== 'string') {
+      console.warn('Invalid networkId provided to getTokensForNetwork:', networkId);
+      return networkTokenMap.ethereum || [];
+    }
+
+    const tokens = networkTokenMap[networkId as keyof typeof networkTokenMap];
+    return Array.isArray(tokens) ? tokens : networkTokenMap.ethereum || [];
   };
 
-  const tokens = getTokensForNetwork(selectedNetwork);
+  const tokens = getTokensForNetwork(selectedNetwork) || [];
+  // Ensure tokens is always an array with robust error handling
+  const safeTokens = Array.isArray(tokens) ? tokens : [];
+  if (!Array.isArray(tokens)) {
+    console.error('Tokens is not an array:', tokens);
+  }
 
 
   const handleSwapDirection = () => {
@@ -409,32 +442,65 @@ export default function SwapPage() {
                   <div className="section-label">You pay</div>
                   <div className="balance">
                     Balance: {(() => {
-                      // Use real balance if available, otherwise fallback to mock data
-                      const realBalance = realBalances[fromToken];
-                      if (realBalance !== undefined && !isNaN(realBalance)) {
-                        return realBalance.toFixed(6) + ' ' + fromToken;
+                      try {
+                        // Use real balance if available, otherwise fallback to mock data
+                        const realBalance = realBalances[fromToken];
+                        if (realBalance !== undefined && !isNaN(realBalance)) {
+                          return realBalance.toFixed(6) + ' ' + fromToken;
+                        }
+                        const tokenData = safeTokens.find(t => t && t.symbol === fromToken);
+                        return tokenData ? tokenData.balance + ' ' + fromToken : '0.000000 ' + fromToken;
+                      } catch (error) {
+                        console.error('Error calculating balance:', error);
+                        return '0.000000 ' + fromToken;
                       }
-                      const tokenData = tokens.find(t => t.symbol === fromToken);
-                      return tokenData ? tokenData.balance + ' ' + fromToken : '0.000000 ' + fromToken;
                     })()}
                   </div>
                 </div>
                 <div className="token-selector" onClick={() => openTokenModal('from')}>
-                  <div className={`token-icon ${tokens.find(t => t.symbol === fromToken)?.color || 'eth'}`}>
-                    <i className={tokens.find(t => t.symbol === fromToken)?.icon ||
-                      `fab fa-${fromToken === 'ETH' ? 'ethereum' : fromToken === 'BTC' ? 'bitcoin' : 'dollar-sign'}`}></i>
+                  <div className={`token-icon ${(() => {
+                    try {
+                      const tokenData = safeTokens.find(t => t && t.symbol === fromToken);
+                      return tokenData?.color || 'eth';
+                    } catch (error) {
+                      console.error('Error getting token color:', error);
+                      return 'eth';
+                    }
+                  })()}`}>
+                    <i className={(() => {
+                      try {
+                        const tokenData = safeTokens.find(t => t && t.symbol === fromToken);
+                        return tokenData?.icon || `fab fa-${fromToken === 'ETH' ? 'ethereum' : fromToken === 'BTC' ? 'bitcoin' : 'dollar-sign'}`;
+                      } catch (error) {
+                        console.error('Error getting token icon:', error);
+                        return `fab fa-${fromToken === 'ETH' ? 'ethereum' : fromToken === 'BTC' ? 'bitcoin' : 'dollar-sign'}`;
+                      }
+                    })()}></i>
                   </div>
                   <div className="token-info">
                     <div className="token-symbol">{fromToken}</div>
                     <div className="token-name">
-                      {tokens.find(t => t.symbol === fromToken)?.name ||
-                       (fromToken === 'ETH' ? 'Ethereum' :
-                        fromToken === 'BTC' ? 'Bitcoin' :
-                        fromToken === 'USDC' ? 'USD Coin' :
-                        fromToken === 'USDT' ? 'Tether' :
-                        fromToken === 'STRK' ? 'Starknet' :
-                        fromToken === 'ARB' ? 'Arbitrum' :
-                        fromToken === 'MATIC' ? 'Polygon' : 'Unknown Token')}
+                      {(() => {
+                        try {
+                          const tokenData = safeTokens.find(t => t && t.symbol === fromToken);
+                          return tokenData?.name || (fromToken === 'ETH' ? 'Ethereum' :
+                            fromToken === 'BTC' ? 'Bitcoin' :
+                            fromToken === 'USDC' ? 'USD Coin' :
+                            fromToken === 'USDT' ? 'Tether' :
+                            fromToken === 'STRK' ? 'Starknet' :
+                            fromToken === 'ARB' ? 'Arbitrum' :
+                            fromToken === 'MATIC' ? 'Polygon' : 'Unknown Token');
+                        } catch (error) {
+                          console.error('Error getting token name:', error);
+                          return fromToken === 'ETH' ? 'Ethereum' :
+                            fromToken === 'BTC' ? 'Bitcoin' :
+                            fromToken === 'USDC' ? 'USD Coin' :
+                            fromToken === 'USDT' ? 'Tether' :
+                            fromToken === 'STRK' ? 'Starknet' :
+                            fromToken === 'ARB' ? 'Arbitrum' :
+                            fromToken === 'MATIC' ? 'Polygon' : 'Unknown Token';
+                        }
+                      })()}
                     </div>
                   </div>
                   <div className="token-dropdown" onClick={() => openNetworkModal('from')}>
@@ -458,32 +524,65 @@ export default function SwapPage() {
                   <div className="section-label">You receive</div>
                   <div className="balance">
                     Balance: {(() => {
-                      // Use real balance if available, otherwise fallback to mock data
-                      const realBalance = realBalances[toToken];
-                      if (realBalance !== undefined && !isNaN(realBalance)) {
-                        return realBalance.toFixed(6) + ' ' + toToken;
+                      try {
+                        // Use real balance if available, otherwise fallback to mock data
+                        const realBalance = realBalances[toToken];
+                        if (realBalance !== undefined && !isNaN(realBalance)) {
+                          return realBalance.toFixed(6) + ' ' + toToken;
+                        }
+                        const tokenData = safeTokens.find(t => t && t.symbol === toToken);
+                        return tokenData ? tokenData.balance + ' ' + toToken : '0.000000 ' + toToken;
+                      } catch (error) {
+                        console.error('Error calculating balance:', error);
+                        return '0.000000 ' + toToken;
                       }
-                      const tokenData = tokens.find(t => t.symbol === toToken);
-                      return tokenData ? tokenData.balance + ' ' + toToken : '0.000000 ' + toToken;
                     })()}
                   </div>
                 </div>
                 <div className="token-selector" onClick={() => openTokenModal('to')}>
-                  <div className={`token-icon ${tokens.find(t => t.symbol === toToken)?.color || 'eth'}`}>
-                    <i className={tokens.find(t => t.symbol === toToken)?.icon ||
-                      `fab fa-${toToken === 'ETH' ? 'ethereum' : toToken === 'BTC' ? 'bitcoin' : 'dollar-sign'}`}></i>
+                  <div className={`token-icon ${(() => {
+                    try {
+                      const tokenData = safeTokens.find(t => t && t.symbol === toToken);
+                      return tokenData?.color || 'eth';
+                    } catch (error) {
+                      console.error('Error getting token color:', error);
+                      return 'eth';
+                    }
+                  })()}`}>
+                    <i className={(() => {
+                      try {
+                        const tokenData = safeTokens.find(t => t && t.symbol === toToken);
+                        return tokenData?.icon || `fab fa-${toToken === 'ETH' ? 'ethereum' : toToken === 'BTC' ? 'bitcoin' : 'dollar-sign'}`;
+                      } catch (error) {
+                        console.error('Error getting token icon:', error);
+                        return `fab fa-${toToken === 'ETH' ? 'ethereum' : toToken === 'BTC' ? 'bitcoin' : 'dollar-sign'}`;
+                      }
+                    })()}></i>
                   </div>
                   <div className="token-info">
                     <div className="token-symbol">{toToken}</div>
                     <div className="token-name">
-                      {tokens.find(t => t.symbol === toToken)?.name ||
-                       (toToken === 'ETH' ? 'Ethereum' :
-                        toToken === 'BTC' ? 'Bitcoin' :
-                        toToken === 'USDC' ? 'USD Coin' :
-                        toToken === 'USDT' ? 'Tether' :
-                        toToken === 'STRK' ? 'Starknet' :
-                        toToken === 'ARB' ? 'Arbitrum' :
-                        toToken === 'MATIC' ? 'Polygon' : 'Unknown Token')}
+                      {(() => {
+                        try {
+                          const tokenData = safeTokens.find(t => t && t.symbol === toToken);
+                          return tokenData?.name || (toToken === 'ETH' ? 'Ethereum' :
+                            toToken === 'BTC' ? 'Bitcoin' :
+                            toToken === 'USDC' ? 'USD Coin' :
+                            toToken === 'USDT' ? 'Tether' :
+                            toToken === 'STRK' ? 'Starknet' :
+                            toToken === 'ARB' ? 'Arbitrum' :
+                            toToken === 'MATIC' ? 'Polygon' : 'Unknown Token');
+                        } catch (error) {
+                          console.error('Error getting token name:', error);
+                          return toToken === 'ETH' ? 'Ethereum' :
+                            toToken === 'BTC' ? 'Bitcoin' :
+                            toToken === 'USDC' ? 'USD Coin' :
+                            toToken === 'USDT' ? 'Tether' :
+                            toToken === 'STRK' ? 'Starknet' :
+                            toToken === 'ARB' ? 'Arbitrum' :
+                            toToken === 'MATIC' ? 'Polygon' : 'Unknown Token';
+                        }
+                      })()}
                     </div>
                   </div>
                   <div className="token-dropdown" onClick={() => openNetworkModal('to')}>
@@ -543,15 +642,65 @@ export default function SwapPage() {
               </div>
             </div>
 
-            <button className="swap-button" onClick={() => {
-              if (connectedAddress && parseFloat(fromAmount) > 0) {
-                // Validate that user has sufficient balance
-                const fromTokenData = tokens.find(t => t.symbol === fromToken);
-                const hasBalance = fromTokenData && parseFloat(fromTokenData.balance) >= parseFloat(fromAmount);
+            {swapError && (
+              <div className="error-message" style={{ color: 'red', marginBottom: '10px', textAlign: 'center' }}>
+                {swapError}
+              </div>
+            )}
+            <button className="swap-button" disabled={isSwapping} onClick={async () => {
+              if (!connectedAddress || !parseFloat(fromAmount)) {
+                alert('Please connect your wallet and enter an amount to swap');
+                return;
+              }
 
-                if (!hasBalance) {
-                  alert('Insufficient balance for this swap');
-                  return;
+              // Validate balance
+              const fromTokenData = safeTokens.find(t => t && t.symbol === fromToken);
+              const hasBalance = fromTokenData && parseFloat(fromTokenData.balance) >= parseFloat(fromAmount);
+              if (!hasBalance) {
+                setSwapError('Insufficient balance for this swap');
+                return;
+              }
+
+              setIsSwapping(true);
+              setSwapError(null);
+
+              try {
+                // Initialize Starknet connection if needed
+                console.log('Initializing Starknet connection...');
+                await initStarknet();
+
+                const amountIn = BigInt(Math.floor(parseFloat(fromAmount) * 100000000)).toString(); // Convert to satoshis as string
+                const minAmountOut = BigInt(Math.floor(parseFloat(toAmount) * 100000000)).toString();
+
+                // Call Starknet contract swap function
+                console.log('Calling Starknet swap function...');
+                const result = await swapTokenToToken(
+                  '0x123', // router address (dummy)
+                  fromToken,
+                  toToken,
+                  amountIn,
+                  minAmountOut,
+                  connectedAddress
+                );
+
+                console.log('✅ Starknet swap result:', result);
+
+                // Also call WASM function with error handling
+                try {
+                  console.log('Initializing WASM bridge...');
+                  const wasmBridge = await initBitcoinBridge();
+                  if (!wasmBridge) {
+                    console.warn('WASM bridge initialization returned null, skipping WASM call');
+                  } else {
+                    const amountInBigInt = BigInt(amountIn);
+                    const minAmountOutBigInt = BigInt(minAmountOut);
+                    console.log('Calling WASM swap function...');
+                    await wasmBridge.swap_token_to_token("user", "0x123", fromToken, toToken, amountInBigInt, minAmountOutBigInt, connectedAddress);
+                    console.log('✅ WASM swap completed');
+                  }
+                } catch (wasmError) {
+                  console.warn('⚠️ WASM swap failed, but continuing with Starknet transaction:', wasmError);
+                  // Don't fail the entire transaction if WASM fails
                 }
 
                 // Add the swap transaction
@@ -560,18 +709,64 @@ export default function SwapPage() {
                   typeIcon: 'fas fa-exchange-alt',
                   typeClass: 'type-swap',
                   fromAsset: fromToken,
-                  fromAssetIcon: tokens.find(t => t.symbol === fromToken)?.icon ||
-                    `fab fa-${fromToken === 'ETH' ? 'ethereum' : fromToken === 'BTC' ? 'bitcoin' : 'dollar-sign'}`,
+                  fromAssetIcon: (() => {
+                    try {
+                      const tokenData = safeTokens.find(t => t && t.symbol === fromToken);
+                      return tokenData?.icon || `fab fa-${fromToken === 'ETH' ? 'ethereum' : fromToken === 'BTC' ? 'bitcoin' : 'dollar-sign'}`;
+                    } catch (error) {
+                      console.error('Error getting fromAsset icon:', error);
+                      return `fab fa-${fromToken === 'ETH' ? 'ethereum' : fromToken === 'BTC' ? 'bitcoin' : 'dollar-sign'}`;
+                    }
+                  })(),
                   fromAssetClass: `asset-${fromToken.toLowerCase()}`,
                   toAsset: toToken,
-                  toAssetIcon: tokens.find(t => t.symbol === toToken)?.icon ||
-                    `fab fa-${toToken === 'ETH' ? 'ethereum' : toToken === 'BTC' ? 'bitcoin' : 'dollar-sign'}`,
+                  toAssetIcon: (() => {
+                    try {
+                      const tokenData = safeTokens.find(t => t && t.symbol === toToken);
+                      return tokenData?.icon || `fab fa-${toToken === 'ETH' ? 'ethereum' : toToken === 'BTC' ? 'bitcoin' : 'dollar-sign'}`;
+                    } catch (error) {
+                      console.error('Error getting toAsset icon:', error);
+                      return `fab fa-${toToken === 'ETH' ? 'ethereum' : toToken === 'BTC' ? 'bitcoin' : 'dollar-sign'}`;
+                    }
+                  })(),
                   toAssetClass: `asset-${toToken.toLowerCase()}`,
-                  fromNetwork: networks.find(n => n.id === selectedNetwork)?.name || selectedNetwork,
-                  fromNetworkIcon: networks.find(n => n.id === selectedNetwork)?.icon || 'fas fa-layer-group',
+                  fromNetwork: (() => {
+                    try {
+                      const networkData = networks.find(n => n && n.id === selectedNetwork);
+                      return networkData?.name || selectedNetwork;
+                    } catch (error) {
+                      console.error('Error getting fromNetwork:', error);
+                      return selectedNetwork;
+                    }
+                  })(),
+                  fromNetworkIcon: (() => {
+                    try {
+                      const networkData = networks.find(n => n && n.id === selectedNetwork);
+                      return networkData?.icon || 'fas fa-layer-group';
+                    } catch (error) {
+                      console.error('Error getting fromNetwork icon:', error);
+                      return 'fas fa-layer-group';
+                    }
+                  })(),
                   fromNetworkClass: `network-${selectedNetwork}`,
-                  toNetwork: networks.find(n => n.id === selectedNetwork)?.name || selectedNetwork,
-                  toNetworkIcon: networks.find(n => n.id === selectedNetwork)?.icon || 'fas fa-layer-group',
+                  toNetwork: (() => {
+                    try {
+                      const networkData = networks.find(n => n && n.id === selectedNetwork);
+                      return networkData?.name || selectedNetwork;
+                    } catch (error) {
+                      console.error('Error getting toNetwork:', error);
+                      return selectedNetwork;
+                    }
+                  })(),
+                  toNetworkIcon: (() => {
+                    try {
+                      const networkData = networks.find(n => n && n.id === selectedNetwork);
+                      return networkData?.icon || 'fas fa-layer-group';
+                    } catch (error) {
+                      console.error('Error getting toNetwork icon:', error);
+                      return 'fas fa-layer-group';
+                    }
+                  })(),
                   toNetworkClass: `network-${selectedNetwork}`,
                   amount: fromAmount + ' ' + fromToken,
                   status: 'completed',
@@ -594,10 +789,13 @@ export default function SwapPage() {
                 setNetworkFee(0);
                 setSwapFee(0);
                 alert('Swap completed successfully!');
-              } else {
-                alert('Please connect your wallet and enter an amount to swap');
+              } catch (error: any) {
+                console.error('Swap failed:', error);
+                setSwapError(error.message || 'Swap transaction failed');
+              } finally {
+                setIsSwapping(false);
               }
-            }}>Swap Now</button>
+            }}>{isSwapping ? 'Swapping...' : 'Swap Now'}</button>
           </div>
 
           <div className="transaction-history">
@@ -606,7 +804,7 @@ export default function SwapPage() {
               <a href="#" className="view-all">View All</a>
             </div>
             <div className="tokens-grid">
-              {tokens.map((token) => (
+              {safeTokens.map((token) => (
                 <div key={token.symbol} className="token-item" onClick={() => selectToken(token.symbol)}>
                   <div className={`token-item-icon ${token.color}`}>
                     <i className={token.icon}></i>
@@ -628,28 +826,49 @@ export default function SwapPage() {
               <a href="/Transactions" className="view-all">View All</a>
             </div>
             <div className="transaction-list">
-              {transactions.filter(tx => tx.type === 'Swap').slice(0, 3).map((tx) => (
-                <div key={tx.id} className="transaction-item">
-                  <div className="transaction-info">
-                    <div className={`transaction-icon ${tx.fromAssetClass}`}>
-                      <i className={tx.fromAssetIcon}></i>
+              {(() => {
+                try {
+                  const safeTransactions = Array.isArray(transactions) ? transactions : [];
+                  const swapTransactions = safeTransactions.filter(tx => tx && tx.type === 'Swap').slice(0, 3);
+                  return swapTransactions.map((tx) => (
+                    <div key={tx.id || Math.random()} className="transaction-item">
+                      <div className="transaction-info">
+                        <div className={`transaction-icon ${tx.fromAssetClass || 'asset-eth'}`}>
+                          <i className={tx.fromAssetIcon || 'fas fa-exchange-alt'}></i>
+                        </div>
+                        <div className="transaction-details">
+                          <h4>{tx.fromAsset || 'Unknown'} to {tx.toAsset || 'Unknown'}</h4>
+                          <p>{tx.date || 'Unknown date'}</p>
+                        </div>
+                      </div>
+                      <div className="transaction-amount">+{tx.amount || '0'}</div>
+                      <div className={`status ${tx.statusClass ? tx.statusClass.split('-')[1] : 'pending'}`}>
+                        {tx.status || 'pending'}
+                      </div>
                     </div>
-                    <div className="transaction-details">
-                      <h4>{tx.fromAsset} to {tx.toAsset}</h4>
-                      <p>{tx.date}</p>
+                  ));
+                } catch (error) {
+                  console.error('Error rendering transactions:', error);
+                  return null;
+                }
+              })()}
+              {(() => {
+                try {
+                  const safeTransactions = Array.isArray(transactions) ? transactions : [];
+                  return safeTransactions.filter(tx => tx && tx.type === 'Swap').length === 0 && (
+                    <div className="no-transactions">
+                      <p>No swap transactions yet. Connect your wallet and make a swap to see your history here.</p>
                     </div>
-                  </div>
-                  <div className="transaction-amount">+{tx.amount}</div>
-                  <div className={`status ${tx.statusClass.split('-')[1]}`}>
-                    {tx.status}
-                  </div>
-                </div>
-              ))}
-              {transactions.filter(tx => tx.type === 'Swap').length === 0 && (
-                <div className="no-transactions">
-                  <p>No swap transactions yet. Connect your wallet and make a swap to see your history here.</p>
-                </div>
-              )}
+                  );
+                } catch (error) {
+                  console.error('Error checking transaction count:', error);
+                  return (
+                    <div className="no-transactions">
+                      <p>No swap transactions yet. Connect your wallet and make a swap to see your history here.</p>
+                    </div>
+                  );
+                }
+              })()}
             </div>
           </div>
         </div>
