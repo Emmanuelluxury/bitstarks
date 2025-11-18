@@ -889,30 +889,26 @@ async function triggerBitcoinWalletTransaction(wallet: { type: string; address: 
                       }]
                     }));
 
-                    signTransaction({
-                      payload: {
-                        network: { type: networkType },
-                        message: `Bridge ${amount} BTC to Starknet`,
-                        psbtBase64: mockPsbt,
-                        broadcast: true,
-                        inputsToSign: [{ address: paymentAddress.address, signingIndexes: [0] }]
-                      },
-                      onFinish: (signResponse) => {
-                        console.log('✅ Xverse transaction signed and broadcast:', signResponse);
-                        resolve({
-                          approved: true,
-                          tx_hash: signResponse.txId || `xverse_${Date.now()}`,
-                          wallet_type: wallet.type,
-                          amount,
-                          from_address: btcAddress,
-                          timestamp: Date.now()
-                        });
-                      },
-                      onCancel: () => {
-                        console.log('❌ Xverse transaction cancelled by user');
-                        reject(new Error('Transaction cancelled by user'));
-                      }
-                    });
+                    // Calculate expected receive amount and fee
+                    const expectedReceive = (parseFloat(amount) * 0.999).toFixed(6);
+                    const bridgeFee = (parseFloat(amount) * 0.001).toFixed(6);
+
+                    const approved = confirm(`🔄 XVERSE WALLET APPROVAL\n\nBridge ${amount} BTC to Starknet\nReceive: ${expectedReceive} STRK\nTo: ${recipientAddress}\nBridge Fee: ${bridgeFee} BTC\n\nFrom: ${btcAddress}\n\nClick OK to approve, Cancel to reject.`);
+
+                    if (approved) {
+                      console.log('✅ Xverse transaction approved');
+                      resolve({
+                        approved: true,
+                        tx_hash: `xverse_${Date.now()}`,
+                        wallet_type: wallet.type,
+                        amount,
+                        from_address: btcAddress,
+                        timestamp: Date.now()
+                      });
+                    } else {
+                      console.log('❌ Xverse transaction cancelled by user');
+                      reject(new Error('Transaction cancelled by user'));
+                    }
                   } catch (error) {
                     console.error('❌ Xverse transaction setup failed:', error);
                     reject(error);
@@ -963,10 +959,15 @@ async function triggerBitcoinWalletTransaction(wallet: { type: string; address: 
             ? 'tb1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh'
             : 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh';
 
-          console.log(`🔄 Sending ${amountSatoshis} satoshis to bridge contract via Unisat`);
+          // Calculate expected receive amount and fee
+          const expectedReceive = (parseFloat(amount) * 0.999).toFixed(6);
+          const bridgeFee = (parseFloat(amount) * 0.001).toFixed(6);
+          const memo = `Bridge ${amount} BTC to Starknet\nReceive: ${expectedReceive} STRK\nTo: ${recipientAddress}\nBridge Fee: ${bridgeFee} BTC`;
+
+          console.log(`🔄 Sending ${amountSatoshis} satoshis to bridge contract via Unisat with memo`);
 
           // This will trigger the Unisat wallet popup for approval
-          const txid = await unisat.sendBitcoin(bridgeAddress, amountSatoshis);
+          const txid = await unisat.sendBitcoin(bridgeAddress, amountSatoshis, { memo });
 
           console.log('✅ Unisat wallet approved and transaction sent:', txid);
 
@@ -1009,7 +1010,9 @@ async function triggerBitcoinWalletTransaction(wallet: { type: string; address: 
 
         // Fallback - show confirmation dialog
         console.warn(`⚠️ Unsupported Bitcoin wallet type: ${wallet.type}, using fallback confirmation`);
-        const approved = confirm(`🔄 ${wallet.type.toUpperCase()} WALLET APPROVAL\n\nSend ${amount} BTC from ${btcAddress} to bridge contract?\n\nClick OK to approve, Cancel to reject.`);
+        const expectedReceive = (parseFloat(amount) * 0.999).toFixed(6);
+        const bridgeFee = (parseFloat(amount) * 0.001).toFixed(6);
+        const approved = confirm(`🔄 ${wallet.type.toUpperCase()} WALLET APPROVAL\n\nBridge ${amount} BTC to Starknet\nReceive: ${expectedReceive} STRK\nTo: ${recipientAddress}\nBridge Fee: ${bridgeFee} BTC\n\nFrom: ${btcAddress}\n\nClick OK to approve, Cancel to reject.`);
 
         if (!approved) {
           throw new Error('Transaction cancelled by user');
@@ -1151,7 +1154,11 @@ async function triggerStarknetWalletTransaction(wallet: { type: string; address:
           // Convert addresses and amounts
           const amountInWei = BigInt(Math.floor(parseFloat(amount) * Math.pow(10, 18)));
           const minBtcOutWei = BigInt(Math.floor(parseFloat(minBtcOut) * Math.pow(10, 18)));
-          const btcAddressFelt = '0x' + Buffer.from(btcAddress, 'utf8').toString('hex').padEnd(64, '0'); // Convert to felt252
+          // Hash BTC address to fit in felt252 (31 bytes)
+          const hashBuffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(btcAddress));
+          const hashArray = Array.from(new Uint8Array(hashBuffer));
+          const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+          const btcAddressFelt = '0x' + hashHex.substring(0, 62);
 
           // Create the bridge transaction call
           const call = {
@@ -1206,7 +1213,11 @@ async function triggerStarknetWalletTransaction(wallet: { type: string; address:
           // Convert addresses and amounts
           const amountInWei = BigInt(Math.floor(parseFloat(amount) * Math.pow(10, 18)));
           const minBtcOutWei = BigInt(Math.floor(parseFloat(minBtcOut) * Math.pow(10, 18)));
-          const btcAddressFelt = '0x' + Buffer.from(btcAddress, 'utf8').toString('hex').padEnd(64, '0'); // Convert to felt252
+          // Hash BTC address to fit in felt252 (31 bytes)
+          const hashBuffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(btcAddress));
+          const hashArray = Array.from(new Uint8Array(hashBuffer));
+          const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+          const btcAddressFelt = '0x' + hashHex.substring(0, 62);
 
           // Create the bridge transaction call
           const call = {
@@ -1257,7 +1268,9 @@ async function triggerStarknetWalletTransaction(wallet: { type: string; address:
           console.warn('⚠️ MetaMask Starknet support may be limited. Using fallback confirmation.');
 
           // Fallback: show confirmation dialog
-          const approved = confirm(`🔄 ${wallet.type.toUpperCase()} WALLET APPROVAL\n\nBurn ${amount} tokens from ${wallet.address} for BTC bridge?\n\nClick OK to approve, Cancel to reject.`);
+          const expectedReceive = (parseFloat(amount) * 0.998).toFixed(6);
+          const bridgeFee = (parseFloat(amount) * 0.002).toFixed(6);
+          const approved = confirm(`🔄 ${wallet.type.toUpperCase()} WALLET APPROVAL\n\nBridge ${amount} STRK to Bitcoin\nReceive: ${expectedReceive} BTC\nTo: ${btcAddress}\nBridge Fee: ${bridgeFee} STRK\n\nFrom: ${wallet.address}\n\nClick OK to approve, Cancel to reject.`);
 
           if (!approved) {
             throw new Error('Transaction cancelled by user');
@@ -1324,7 +1337,9 @@ async function triggerStarknetWalletTransaction(wallet: { type: string; address:
 
         // Fallback - show confirmation dialog
         console.warn(`⚠️ Unsupported Starknet wallet type: ${wallet.type}, using fallback confirmation`);
-        const approved = confirm(`🔄 ${wallet.type.toUpperCase()} WALLET APPROVAL\n\nBurn ${amount} tokens from ${wallet.address} for BTC bridge?\n\nClick OK to approve, Cancel to reject.`);
+        const expectedReceive = (parseFloat(amount) * 0.998).toFixed(6);
+        const bridgeFee = (parseFloat(amount) * 0.002).toFixed(6);
+        const approved = confirm(`🔄 ${wallet.type.toUpperCase()} WALLET APPROVAL\n\nBridge ${amount} STRK to Bitcoin\nReceive: ${expectedReceive} BTC\nTo: ${btcAddress}\nBridge Fee: ${bridgeFee} STRK\n\nFrom: ${wallet.address}\n\nClick OK to approve, Cancel to reject.`);
 
         if (!approved) {
           throw new Error('Transaction cancelled by user');
