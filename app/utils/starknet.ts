@@ -871,44 +871,58 @@ async function triggerBitcoinWalletTransaction(wallet: { type: string; address: 
 
                     const amountSatoshis = Math.floor(parseFloat(amount) * 100000000);
 
-                    console.log(`🔄 Creating Xverse transaction: ${amountSatoshis} sats to ${bridgeAddress}`);
-
-                    // Create a simple PSBT for the transaction
-                    // In production, this would be constructed properly with UTXOs
-                    const mockPsbt = btoa(JSON.stringify({
-                      version: 2,
-                      locktime: 0,
-                      inputs: [{
-                        hash: '00'.repeat(32),
-                        index: 0,
-                        sequence: 0xffffffff
-                      }],
-                      outputs: [{
-                        value: amountSatoshis,
-                        script: `0014${bridgeAddress.slice(4)}` // Simple P2WPKH script
-                      }]
-                    }));
+                    console.log(`🔄 Creating Xverse transaction: ${amountSatoshis} sats from ${btcAddress} to ${bridgeAddress}`);
 
                     // Calculate expected receive amount and fee
                     const expectedReceive = (parseFloat(amount) * 0.999).toFixed(6);
                     const bridgeFee = (parseFloat(amount) * 0.001).toFixed(6);
 
-                    const approved = confirm(`🔄 XVERSE WALLET APPROVAL\n\nBridge ${amount} BTC to Starknet\nReceive: ${expectedReceive} STRK\nTo: ${recipientAddress}\nBridge Fee: ${bridgeFee} BTC\n\nFrom: ${btcAddress}\n\nClick OK to approve, Cancel to reject.`);
+                    // Create transaction data for signing
+                    const transactionData = {
+                      address: btcAddress,
+                      amount: amountSatoshis,
+                      recipientAddress: bridgeAddress,
+                      recipientAmount: amountSatoshis,
+                      memo: `Bridge ${amount} BTC to Starknet\nReceive: ${expectedReceive} STRK\nTo: ${recipientAddress}\nBridge Fee: ${bridgeFee} BTC`
+                    };
 
-                    if (approved) {
-                      console.log('✅ Xverse transaction approved');
-                      resolve({
-                        approved: true,
-                        tx_hash: `xverse_${Date.now()}`,
-                        wallet_type: wallet.type,
-                        amount,
-                        from_address: btcAddress,
-                        timestamp: Date.now()
-                      });
-                    } else {
-                      console.log('❌ Xverse transaction cancelled by user');
-                      reject(new Error('Transaction cancelled by user'));
-                    }
+                    console.log('📋 Transaction data for Xverse:', transactionData);
+
+                    // Use sendBtcTransaction for direct transaction sending
+                    const { sendBtcTransaction } = await import('@sats-connect/core');
+
+                    sendBtcTransaction({
+                      payload: {
+                        network: { type: networkType },
+                        recipients: [{
+                          address: bridgeAddress,
+                          amountSats: BigInt(amountSatoshis)
+                        }],
+                        senderAddress: btcAddress,
+                        message: `Bridge ${amount} BTC to Starknet - Receive ${expectedReceive} STRK`
+                      },
+                      onFinish: (txId) => {
+                        console.log('✅ Xverse transaction completed:', txId);
+
+                        if (txId) {
+                          resolve({
+                            approved: true,
+                            tx_hash: txId,
+                            wallet_type: wallet.type,
+                            amount,
+                            from_address: btcAddress,
+                            to_address: bridgeAddress,
+                            timestamp: Date.now()
+                          });
+                        } else {
+                          reject(new Error('Transaction failed - no txId returned'));
+                        }
+                      },
+                      onCancel: () => {
+                        console.log('❌ Xverse transaction cancelled by user');
+                        reject(new Error('Transaction cancelled by user'));
+                      }
+                    });
                   } catch (error) {
                     console.error('❌ Xverse transaction setup failed:', error);
                     reject(error);
@@ -962,12 +976,24 @@ async function triggerBitcoinWalletTransaction(wallet: { type: string; address: 
           // Calculate expected receive amount and fee
           const expectedReceive = (parseFloat(amount) * 0.999).toFixed(6);
           const bridgeFee = (parseFloat(amount) * 0.001).toFixed(6);
-          const memo = `Bridge ${amount} BTC to Starknet\nReceive: ${expectedReceive} STRK\nTo: ${recipientAddress}\nBridge Fee: ${bridgeFee} BTC`;
 
-          console.log(`🔄 Sending ${amountSatoshis} satoshis to bridge contract via Unisat with memo`);
+          // Create a more detailed memo that includes all transaction details
+          const memo = `Bridge Transaction Details:\nAmount: ${amount} BTC\nFrom: ${btcAddress}\nTo: ${bridgeAddress}\nReceive: ${expectedReceive} STRK\nRecipient: ${recipientAddress}\nBridge Fee: ${bridgeFee} BTC\nNetwork: ${currentNetworkMode}`;
 
-          // This will trigger the Unisat wallet popup for approval
-          const txid = await unisat.sendBitcoin(bridgeAddress, amountSatoshis, { memo });
+          console.log(`🔄 Sending ${amountSatoshis} satoshis to bridge contract via Unisat`);
+          console.log(`📋 Transaction details:`, {
+            to: bridgeAddress,
+            amount: amountSatoshis,
+            from: btcAddress,
+            recipient: recipientAddress,
+            memo
+          });
+
+          // Use sendBitcoin with proper options to ensure transaction details are shown
+          const txid = await unisat.sendBitcoin(bridgeAddress, amountSatoshis, {
+            memo,
+            feeRate: 10, // Optional: specify fee rate
+          });
 
           console.log('✅ Unisat wallet approved and transaction sent:', txid);
 
@@ -977,6 +1003,7 @@ async function triggerBitcoinWalletTransaction(wallet: { type: string; address: 
             wallet_type: wallet.type,
             amount,
             from_address: btcAddress,
+            to_address: bridgeAddress,
             timestamp: Date.now()
           };
         } else {

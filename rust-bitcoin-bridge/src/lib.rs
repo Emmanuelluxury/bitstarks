@@ -178,6 +178,21 @@ pub struct Bridge {
     events: Vec<SimpleEvent>,
 }
 
+
+fn vec_to_string(vec: &Vec<Felt252>) -> String {
+    let mut bytes = Vec::new();
+    for &felt in vec {
+        let felt_u64 = felt as u64;
+        let felt_bytes = felt_u64.to_be_bytes();
+        bytes.extend_from_slice(&felt_bytes);
+    }
+    // Remove trailing zeros
+    while let Some(&0) = bytes.last() {
+        bytes.pop();
+    }
+    String::from_utf8_lossy(&bytes).to_string()
+}
+
 #[wasm_bindgen]
 impl Bridge {
     #[wasm_bindgen(constructor)]
@@ -520,20 +535,21 @@ impl Bridge {
         caller: String,
         token_in: String,
         amount_in: U256,
-        btc_address: String,
+        btc_address: Vec<Felt252>,
         min_btc_out: U256,
     ) -> Result<U256, JsValue> {
+        let btc_address_str = vec_to_string(&btc_address);
         self.assert_not_paused().map_err(JsValue::from)?;
         self.ensure(!self.storage.emergency_paused, "EMERGENCY_PAUSED").map_err(JsValue::from)?;
         self.ensure(!*self.storage.token_blacklist.get(&token_in).unwrap_or(&false), "TOKEN_BLACKLISTED").map_err(JsValue::from)?;
         self.validate_amount(amount_in).map_err(JsValue::from)?;
-        self.validate_btc_address(&btc_address).map_err(JsValue::from)?;
+        self.validate_btc_address(&btc_address_str).map_err(JsValue::from)?;
         self.ensure(min_btc_out > 0, "INVALID_MIN_BTC_OUT").map_err(JsValue::from)?;
         self.check_daily_limit(amount_in).map_err(JsValue::from)?;
         self.update_daily_usage(amount_in);
-        let swap_id = (amount_in as u128).wrapping_add(btc_address.len() as u128);
-        self.emit(SimpleEvent { event_type: "BitcoinWithdrawalInitiated".to_string(), data: format!("withdrawal_id:{},user:{},amount:{},btc_address:{},timestamp:{}", swap_id, caller, min_btc_out, btc_address, js_sys::Date::now()) });
-        self.record_transaction(&caller, TransactionType::BridgeTokenToBTC, token_in.clone(), amount_in, 0, "0".to_string(), btc_address.clone(), swap_id);
+        let swap_id = (amount_in as u128).wrapping_add(btc_address_str.len() as u128);
+        self.emit(SimpleEvent { event_type: "BitcoinWithdrawalInitiated".to_string(), data: format!("withdrawal_id:{},user:{},amount:{},btc_address:{},timestamp:{}", swap_id, caller, min_btc_out, btc_address_str, js_sys::Date::now()) });
+        self.record_transaction(&caller, TransactionType::BridgeTokenToBTC, token_in.clone(), amount_in, 0, "0".to_string(), btc_address_str.clone(), swap_id);
         self.emit(SimpleEvent { event_type: "Swapped".to_string(), data: format!("router:,token_in:{},token_out:,amount_in:{},amount_out:{},to:{}", token_in, amount_in, min_btc_out, caller) });
         Ok(swap_id)
     }
@@ -596,17 +612,18 @@ impl Bridge {
         &mut self,
         caller: String,
         amount: U256,
-        btc_address: String,
+        btc_address: Vec<Felt252>,
     ) -> Result<U256, JsValue> {
+        let btc_address_str = vec_to_string(&btc_address);
         self.assert_not_paused().map_err(JsValue::from)?;
         self.ensure(!self.storage.emergency_paused, "EMERGENCY_PAUSED").map_err(JsValue::from)?;
         self.validate_amount(amount).map_err(JsValue::from)?;
-        self.validate_btc_address(&btc_address).map_err(JsValue::from)?;
-        let withdrawal_id = (amount as u128).wrapping_add(btc_address.len() as u128);
+        self.validate_btc_address(&btc_address_str).map_err(JsValue::from)?;
+        let withdrawal_id = (amount as u128).wrapping_add(btc_address_str.len() as u128);
         self.check_daily_limit(amount).map_err(JsValue::from)?;
         self.update_daily_usage(amount);
-        self.emit(SimpleEvent { event_type: "BitcoinWithdrawalInitiated".to_string(), data: format!("withdrawal_id:{},user:{},amount:{},btc_address:{},timestamp:{}", withdrawal_id, caller, amount, btc_address, js_sys::Date::now()) });
-        self.record_transaction(&caller, TransactionType::Withdraw, String::new(), amount, 0, "0".to_string(), btc_address, withdrawal_id);
+        self.emit(SimpleEvent { event_type: "BitcoinWithdrawalInitiated".to_string(), data: format!("withdrawal_id:{},user:{},amount:{},btc_address:{},timestamp:{}", withdrawal_id, caller, amount, btc_address_str, js_sys::Date::now()) });
+        self.record_transaction(&caller, TransactionType::Withdraw, String::new(), amount, 0, "0".to_string(), btc_address_str, withdrawal_id);
         Ok(withdrawal_id)
     }
 

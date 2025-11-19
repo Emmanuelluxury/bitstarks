@@ -5,6 +5,21 @@ import init, { Bridge } from '../lib/wasm/bitcoin_starknet_bridge.js';
 
 let bridgeInstance: Bridge | null = null;
 
+// Helper function to convert string to BigUint64Array for WASM
+function stringToBigUint64Array(str: string): BigUint64Array {
+  const encoder = new TextEncoder();
+  const bytes = encoder.encode(str);
+  const paddedLength = Math.ceil(bytes.length / 8) * 8;
+  const paddedBytes = new Uint8Array(paddedLength);
+  paddedBytes.set(bytes);
+  const array = new BigUint64Array(paddedLength / 8);
+  const view = new DataView(paddedBytes.buffer);
+  for (let i = 0; i < array.length; i++) {
+    array[i] = view.getBigUint64(i * 8, false); // big-endian
+  }
+  return array;
+}
+
 export async function initBitcoinBridge(): Promise<Bridge> {
   try {
     if (bridgeInstance) {
@@ -59,7 +74,7 @@ export async function initiateBitcoinWithdrawal(
   btcAddress: string
 ): Promise<bigint> {
   const bridge = await initBitcoinBridge();
-  return bridge.initiate_bitcoin_withdrawal('user', amountIn, btcAddress);
+  return bridge.initiate_bitcoin_withdrawal('user', amountIn, stringToBigUint64Array(btcAddress));
 }
 
 export async function bridgeBtcToToken(
@@ -80,7 +95,7 @@ export async function bridgeTokenToBtc(
   minBtcOut: bigint
 ): Promise<bigint> {
   const bridge = await initBitcoinBridge();
-  return bridge.bridge_token_to_btc('user', tokenIn, amountIn, btcAddress, minBtcOut);
+  return bridge.bridge_token_to_btc('user', tokenIn, amountIn, stringToBigUint64Array(btcAddress), minBtcOut);
 }
 
 export async function swapTokenToToken(
