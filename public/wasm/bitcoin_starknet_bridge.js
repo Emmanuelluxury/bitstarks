@@ -163,6 +163,22 @@ function takeFromExternrefTable0(idx) {
     wasm.__externref_table_dealloc(idx);
     return value;
 }
+
+let cachedBigUint64ArrayMemory0 = null;
+
+function getBigUint64ArrayMemory0() {
+    if (cachedBigUint64ArrayMemory0 === null || cachedBigUint64ArrayMemory0.byteLength === 0) {
+        cachedBigUint64ArrayMemory0 = new BigUint64Array(wasm.memory.buffer);
+    }
+    return cachedBigUint64ArrayMemory0;
+}
+
+function passArray64ToWasm0(arg, malloc) {
+    const ptr = malloc(arg.length * 8, 8) >>> 0;
+    getBigUint64ArrayMemory0().set(arg, ptr / 8);
+    WASM_VECTOR_LEN = arg.length;
+    return ptr;
+}
 /**
  * @enum {0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8}
  */
@@ -430,7 +446,7 @@ export class Bridge {
      * @param {string} caller
      * @param {string} token_in
      * @param {bigint} amount_in
-     * @param {string} btc_address
+     * @param {BigUint64Array} btc_address
      * @param {bigint} min_btc_out
      * @returns {bigint}
      */
@@ -439,7 +455,7 @@ export class Bridge {
         const len0 = WASM_VECTOR_LEN;
         const ptr1 = passStringToWasm0(token_in, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len1 = WASM_VECTOR_LEN;
-        const ptr2 = passStringToWasm0(btc_address, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const ptr2 = passArray64ToWasm0(btc_address, wasm.__wbindgen_malloc);
         const len2 = WASM_VECTOR_LEN;
         const ret = wasm.bridge_bridge_token_to_btc(this.__wbg_ptr, ptr0, len0, ptr1, len1, amount_in, amount_in >> BigInt(64), ptr2, len2, min_btc_out, min_btc_out >> BigInt(64));
         if (ret[3]) {
@@ -497,13 +513,13 @@ export class Bridge {
     /**
      * @param {string} caller
      * @param {bigint} amount
-     * @param {string} btc_address
+     * @param {BigUint64Array} btc_address
      * @returns {bigint}
      */
     initiate_bitcoin_withdrawal(caller, amount, btc_address) {
         const ptr0 = passStringToWasm0(caller, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(btc_address, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const ptr1 = passArray64ToWasm0(btc_address, wasm.__wbindgen_malloc);
         const len1 = WASM_VECTOR_LEN;
         const ret = wasm.bridge_initiate_bitcoin_withdrawal(this.__wbg_ptr, ptr0, len0, amount, amount >> BigInt(64), ptr1, len1);
         if (ret[3]) {
@@ -748,6 +764,7 @@ function __wbg_get_imports() {
 function __wbg_finalize_init(instance, module) {
     wasm = instance.exports;
     __wbg_init.__wbindgen_wasm_module = module;
+    cachedBigUint64ArrayMemory0 = null;
     cachedDataViewMemory0 = null;
     cachedUint8ArrayMemory0 = null;
 

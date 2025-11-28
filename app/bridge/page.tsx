@@ -612,8 +612,12 @@ export default function BridgePage() {
 
       // Provide user-friendly error messages
       let errorMessage = 'Bridge transaction failed';
+      let isUserCancel = false;
 
-      if (error.message?.includes('wallet')) {
+      if (error.message?.includes('cancel') || error.message?.includes('user abort') || error.message?.includes('cancelled by user')) {
+        errorMessage = 'Transaction cancelled. You can try again when ready.';
+        isUserCancel = true;
+      } else if (error.message?.includes('wallet')) {
         errorMessage = 'Wallet connection error. Please ensure your wallet is connected and try again.';
       } else if (error.message?.includes('network')) {
         errorMessage = 'Network error. Please check your connection and try again.';
@@ -626,6 +630,9 @@ export default function BridgePage() {
       }
 
       setBridgeError(errorMessage);
+
+      // Only record as failed transaction if it's not a user cancel
+      if (!isUserCancel) {
 
       // Record failed transaction
       addTransaction({
@@ -657,6 +664,7 @@ export default function BridgePage() {
           network: networkMode
         }
       });
+      }
     } finally {
       setIsBridging(false);
     }
