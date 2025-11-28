@@ -948,10 +948,13 @@ export async function initStarknet(walletConnection?: { type: string; address: s
       console.log('✅ Initialized with demo account:', account.address);
     }
 
-    // Create provider based on network mode
-    provider = {
-      network: currentNetworkMode === 'testnet' ? 'goerli-alpha' : 'mainnet-alpha'
-    } as any;
+    // Create provider based on network mode (use starknet.js Provider so waitForTransaction is available)
+            // Cast options to any because the library's TypeScript types may not include the `sequencer` property in this environment.
+            provider = new Provider({
+              sequencer: {
+                network: currentNetworkMode === 'testnet' ? 'goerli-alpha' : 'mainnet-alpha'
+              }
+            } as any);
 
     // Create bridge contract
     bridgeContract = {
@@ -981,6 +984,49 @@ export function getAccount(): Account | null {
 // Get bridge contract
 export function getBridgeContract(): Contract | null {
   return bridgeContract;
+}
+
+// Wait for transaction confirmation helper
+export async function waitForTransactionConfirmation(txHash?: string | null, timeoutMs = 120000, pollInterval = 3000) {
+  if (!txHash) return null;
+
+  // Skip waiting for local/mock transactions created by the app
+  if (typeof txHash === 'string' && txHash.startsWith('starknet_bridge_')) return null;
+
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    try {
+      // If account (wallet) provides waiting helper, use it
+      if (account && typeof (account as any).waitForTransaction === 'function') {
+        return await (account as any).waitForTransaction(txHash);
+      }
+
+      // If provider has waitForTransaction (starknet.js Provider), use it
+      if (provider && typeof (provider as any).waitForTransaction === 'function') {
+        return await (provider as any).waitForTransaction(txHash);
+      }
+
+      // Fallback: try getTransactionReceipt polling
+      if (provider && typeof (provider as any).getTransactionReceipt === 'function') {
+        const receipt = await (provider as any).getTransactionReceipt(txHash);
+        if (receipt && (receipt.status === 'ACCEPTED_ON_L2' || receipt.status === 'ACCEPTED_ON_L1')) return receipt;
+        if (receipt && receipt.status === 'REJECTED') throw new Error('Transaction rejected');
+      }
+
+      // Older provider method: getTransactionStatus
+      if (provider && typeof (provider as any).getTransactionStatus === 'function') {
+        const status = await (provider as any).getTransactionStatus(txHash);
+        if (status === 'ACCEPTED_ON_L2' || status === 'ACCEPTED_ON_L1') return { status };
+        if (status === 'REJECTED') throw new Error('Transaction rejected');
+      }
+    } catch (err) {
+      console.warn('waitForTransaction attempt failed:', err);
+    }
+
+    await new Promise(res => setTimeout(res, pollInterval));
+  }
+
+  throw new Error('Timed out waiting for transaction confirmation');
 }
 
 // Utility functions for contract interactions
@@ -1128,8 +1174,8 @@ export async function bridgeBtcToToken(
 
     console.log('✅ Tokens minted on Starknet:', tx);
 
-    // Wait for transaction confirmation
-    const receipt = provider ? await provider.waitForTransaction(tx.transaction_hash) : null;
+  // Wait for transaction confirmation (robust helper handles provider/account differences)
+  const receipt = await waitForTransactionConfirmation(tx.transaction_hash);
 
     console.log('✅ BTC → Token Bridge completed successfully');
     console.log('📈 Bridged:', amount, 'BTC →', receivedAmount, 'tokens');
@@ -1512,8 +1558,8 @@ export async function bridgeTokenToBtc(
 
     console.log('✅ Starknet wallet approved transaction:', starknetApproval);
 
-    // Wait for transaction confirmation
-    const receipt = provider ? await provider.waitForTransaction(starknetApproval.tx_hash) : null;
+  // Wait for transaction confirmation (robust helper handles provider/account differences)
+  const receipt = await waitForTransactionConfirmation(starknetApproval.tx_hash);
 
     // Step 2: Simulate BTC crediting (would happen on Bitcoin network in real bridge)
     console.log('🔄 Crediting BTC to recipient address...');
