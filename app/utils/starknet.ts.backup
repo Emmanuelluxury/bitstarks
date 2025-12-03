@@ -1160,17 +1160,25 @@ export async function bridgeBtcToToken(
 
     console.log('✅ Bitcoin wallet approved transaction:', btcApproval);
 
-    // Step 2: Simulate token minting on Starknet (handled by bridge backend)
-    console.log('🔄 Minting tokens on Starknet via bridge backend...');
+    // Step 2: Actually mint tokens on Starknet
+    console.log('🔄 Minting tokens on Starknet...');
 
-    // Simulate network delay for token minting
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    if (!bridgeContract) {
+      throw new Error('Bridge contract not initialized');
+    }
 
-    // Create mock transaction hash for Starknet side
-    const tx = {
-      transaction_hash: `starknet_bridge_${Date.now()}`,
-      status: 'confirmed'
-    };
+    // Prepare amount in wei (18 decimals)
+    const amountWei = BigInt(Math.floor(receivedAmount * Math.pow(10, 18)));
+    const amountSplit = splitU256(amountWei);
+
+    // Call bridge contract to mint tokens
+    const tx = await bridgeContract.bridge_btc_to_token(
+      [amountSplit.low, amountSplit.high], // amount
+      btcAddress, // btc_address
+      tokenOut, // token_out  
+      [Math.floor(parseFloat(minAmountOut) * Math.pow(10, 18)).toString(), '0'], // min_amount_out
+      to // to
+    );
 
     console.log('✅ Tokens minted on Starknet:', tx);
 

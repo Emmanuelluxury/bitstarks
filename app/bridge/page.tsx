@@ -34,6 +34,8 @@ export default function BridgePage() {
     const [isBridging, setIsBridging] = useState(false);
     const [bridgeError, setBridgeError] = useState<string | null>(null);
     const [bridgeSuccess, setBridgeSuccess] = useState<string | null>(null);
+    const [showTransactionPopup, setShowTransactionPopup] = useState(false);
+    const [transactionDetails, setTransactionDetails] = useState<any>(null);
     const [bitcoinWalletType, setBitcoinWalletType] = useState<string | null>(null);
     const [starknetWalletType, setStarknetWalletType] = useState<string | null>(null);
     const networkSwitchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -603,9 +605,27 @@ export default function BridgePage() {
       // Refresh balances after successful transaction
       await refreshBalances();
 
-      // Show success message
-      const successMessage = `✅ Bridge transaction successful!\n\nDirection: ${directionText}\nSent: ${fromAmount} ${assetSent}\nReceived: ${receivedAmount.toFixed(6)} ${assetReceived}\nFee: ${actualFee.toFixed(6)} ${assetSent}\n\nTransaction Hash: ${txHash}\n\nYour tokens have been transferred successfully! Balances have been updated.`;
-      setBridgeSuccess(successMessage);
+      // Show transaction popup with details
+      setTransactionDetails({
+        direction,
+        directionText,
+        fromAddress,
+        toAddress,
+        sentAmount: fromAmount,
+        receivedAmount: receivedAmount.toFixed(6),
+        actualFee: actualFee.toFixed(6),
+        bitcoinFee,
+        starknetFee,
+        totalFees: actualFee + bitcoinFee + (direction === 'btc-to-stark' ? starknetFee : 0),
+        estimatedTime,
+        network: networkMode,
+        btcTxHash: txResult.btc_tx_hash,
+        starknetTxHash: txResult.starknet_tx_hash || txResult.transaction_hash,
+        txHash,
+        assetSent,
+        assetReceived
+      });
+      setShowTransactionPopup(true);
 
     } catch (error: any) {
       console.error('❌ Bridge transaction failed:', error);
@@ -708,6 +728,96 @@ export default function BridgePage() {
         key={`wallet-modal-${networkMode}-${Date.now()}`} // Force re-render when network changes
       />
 
+      {/* Transaction Success Popup */}
+      {showTransactionPopup && transactionDetails && (
+        <div className="transaction-popup-overlay" onClick={() => setShowTransactionPopup(false)}>
+          <div className="transaction-popup-content" onClick={(e) => e.stopPropagation()}>
+            <div className="transaction-popup-header">
+              <div className="success-icon">
+                <i className="fas fa-check-circle"></i>
+              </div>
+              <h2>Bridge Transaction Successful!</h2>
+              <button className="close-popup" onClick={() => setShowTransactionPopup(false)}>
+                <i className="fas fa-times"></i>
+              </button>
+            </div>
+
+            <div className="transaction-popup-body">
+              <div className="transaction-summary">
+                <div className="summary-item">
+                  <span className="summary-label">Direction:</span>
+                  <span className="summary-value">{transactionDetails.directionText}</span>
+                </div>
+                <div className="summary-item">
+                  <span className="summary-label">Sent:</span>
+                  <span className="summary-value">{transactionDetails.sentAmount} {transactionDetails.assetSent}</span>
+                </div>
+                <div className="summary-item">
+                  <span className="summary-label">Received:</span>
+                  <span className="summary-value">{transactionDetails.receivedAmount} {transactionDetails.assetReceived}</span>
+                </div>
+                <div className="summary-item">
+                  <span className="summary-label">Total Fee:</span>
+                  <span className="summary-value">{transactionDetails.actualFee} {transactionDetails.assetSent}</span>
+                </div>
+                <div className="summary-item">
+                  <span className="summary-label">Estimated Time:</span>
+                  <span className="summary-value">{transactionDetails.estimatedTime}</span>
+                </div>
+              </div>
+
+              <div className="transaction-details">
+                <h3>Transaction Details</h3>
+                <div className="details-grid">
+                  <div className="detail-item">
+                    <span className="detail-label">From Address:</span>
+                    <span className="detail-value address">{transactionDetails.fromAddress}</span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="detail-label">To Address:</span>
+                    <span className="detail-value address">{transactionDetails.toAddress}</span>
+                  </div>
+                  {transactionDetails.txHash && (
+                    <div className="detail-item">
+                      <span className="detail-label">Transaction Hash:</span>
+                      <span className="detail-value hash">{transactionDetails.txHash}</span>
+                    </div>
+                  )}
+                  {transactionDetails.btcTxHash && (
+                    <div className="detail-item">
+                      <span className="detail-label">Bitcoin TX Hash:</span>
+                      <span className="detail-value hash">{transactionDetails.btcTxHash}</span>
+                    </div>
+                  )}
+                  {transactionDetails.starknetTxHash && (
+                    <div className="detail-item">
+                      <span className="detail-label">Starknet TX Hash:</span>
+                      <span className="detail-value hash">{transactionDetails.starknetTxHash}</span>
+                    </div>
+                  )}
+                  <div className="detail-item">
+                    <span className="detail-label">Network:</span>
+                    <span className="detail-value">{transactionDetails.network === 'mainnet' ? 'Mainnet' : 'Testnet'}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="transaction-actions">
+                <button className="view-transactions-btn" onClick={() => {
+                  setShowTransactionPopup(false);
+                  // Could navigate to transactions page here
+                }}>
+                  View All Transactions
+                </button>
+                <button className="close-success-btn" onClick={() => setShowTransactionPopup(false)}>
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="main-content">
           <div className="bridge-card">
           <div className="card-header">
@@ -762,7 +872,7 @@ export default function BridgePage() {
               <div className="network-balance">
                 Balance: {bitcoinWalletConnected && bitcoinBalance !== null
                   ? `${bitcoinBalance.toFixed(4)} BTC`
-                  : '0.0020 BTC'}
+                  : '0.0000 BTC'}
               </div>
             </div>
             <div className={`network-card ${direction === 'stark-to-btc' ? 'active' : ''}`}>
@@ -773,7 +883,7 @@ export default function BridgePage() {
               <div className="network-balance">
                 Balance: {starknetWalletConnected && starknetBalance !== null
                   ? `${starknetBalance.toFixed(4)} STRK`
-                  : '0.0030 STRK'}
+                  : '0.0000 STRK'}
               </div>
             </div>
           </div>
@@ -845,10 +955,10 @@ export default function BridgePage() {
                   Max: {direction === 'btc-to-stark'
                     ? (bitcoinWalletConnected && bitcoinBalance !== null
                         ? `${bitcoinBalance.toFixed(4)} BTC`
-                        : '0.0020 BTC')
+                        : '0.0000 BTC')
                     : (starknetWalletConnected && starknetBalance !== null
                         ? `${starknetBalance.toFixed(4)} STRK`
-                        : '0.0030 STRK')}
+                        : '0.0000 STRK')}
                 </span>
               </div>
               <div className="input-container">
@@ -905,11 +1015,6 @@ export default function BridgePage() {
               {bridgeError}
             </div>
           )}
-          {bridgeSuccess && (
-            <div className="success-message" style={{ color: 'green', marginBottom: '10px', textAlign: 'center', whiteSpace: 'pre-line' }}>
-              {bridgeSuccess}
-            </div>
-          )}
           <button
             className="bridge-button"
             onClick={handleBridge}
@@ -959,4 +1064,3 @@ export default function BridgePage() {
     </div>
   );
 }
-
