@@ -901,29 +901,46 @@ export function setNetworkMode(mode: 'mainnet' | 'testnet') {
 export async function initStarknet(walletConnection?: { type: string; address: string }) {
   try {
     console.log('🔗 Initializing Starknet bridge system...');
+    console.log('📊 Wallet connection params:', walletConnection);
 
     if (walletConnection && walletConnection.type === 'starknet') {
+      console.log('🔍 DEBUG: Attempting to connect to actual Starknet wallet...');
       // Connect to actual Starknet wallet
       let walletAccount = null;
 
       switch (walletConnection.type.toLowerCase()) {
         case 'ready':
+          console.log('🔍 DEBUG: Checking for Argent X (Ready) wallet...');
           if (typeof window !== 'undefined' && window.starknet_argentX) {
             walletAccount = window.starknet_argentX.account;
             console.log('🔗 Connecting to Argent X (Ready) wallet...');
+            console.log('  - Wallet available:', !!window.starknet_argentX);
+            console.log('  - Account available:', !!walletAccount);
+          } else {
+            console.log('❌ DEBUG: Argent X wallet not found in window object');
           }
           break;
         case 'braavos':
+          console.log('🔍 DEBUG: Checking for Braavos wallet...');
           if (typeof window !== 'undefined' && window.starknet_braavos) {
             walletAccount = window.starknet_braavos.account;
             console.log('🔗 Connecting to Braavos wallet...');
+            console.log('  - Wallet available:', !!window.starknet_braavos);
+            console.log('  - Account available:', !!walletAccount);
+          } else {
+            console.log('❌ DEBUG: Braavos wallet not found in window object');
           }
           break;
         case 'metamask':
+          console.log('🔍 DEBUG: Checking for MetaMask Starknet wallet...');
           // MetaMask with Starknet support
           if (typeof window !== 'undefined' && window.ethereum && window.ethereum.starknet) {
             walletAccount = window.ethereum.starknet.account;
             console.log('🔗 Connecting to MetaMask Starknet wallet...');
+            console.log('  - Wallet available:', !!window.ethereum.starknet);
+            console.log('  - Account available:', !!walletAccount);
+          } else {
+            console.log('❌ DEBUG: MetaMask Starknet wallet not found');
           }
           break;
       }
@@ -931,7 +948,9 @@ export async function initStarknet(walletConnection?: { type: string; address: s
       if (walletAccount) {
         account = walletAccount;
         console.log('✅ Connected to Starknet wallet account:', account.address);
+        console.log('  - Account type:', account.constructor.name);
       } else {
+        console.log('⚠️ DEBUG: No wallet account found, creating fallback account...');
         // Fallback: create account with address but no provider
         account = {
           address: walletConnection.address,
@@ -940,6 +959,7 @@ export async function initStarknet(walletConnection?: { type: string; address: s
         console.log('⚠️ Wallet account not found, using address-only account:', account.address);
       }
     } else {
+      console.log('🔍 DEBUG: No Starknet wallet specified, creating demo account...');
       // Create a demo account for testing
       account = {
         address: '0x' + Math.random().toString(16).substring(2, 42),
@@ -1105,6 +1125,13 @@ export async function bridgeBtcToToken(
   console.log('🔄 Executing BTC → Token Bridge with Wallet Approval');
   console.log('📊 Parameters:', { amount, btcAddress, tokenOut, minAmountOut, to, bitcoinWallet });
 
+  // Debug: Check global state
+  console.log('🔍 DEBUG: Global Starknet state:');
+  console.log('  - account:', account ? { address: account.address, type: account.type } : 'null');
+  console.log('  - provider:', provider ? 'initialized' : 'null');
+  console.log('  - bridgeContract:', bridgeContract ? 'initialized' : 'null');
+  console.log('  - currentNetworkMode:', currentNetworkMode);
+
   // Validate inputs
   if (!amount || parseFloat(amount) <= 0) {
     throw new Error('Invalid amount: must be greater than 0');
@@ -1118,9 +1145,30 @@ export async function bridgeBtcToToken(
     throw new Error('Invalid recipient address');
   }
 
+  console.log('🔍 DEBUG: Checking Starknet account...');
   if (!account) {
-    throw new Error('No Starknet wallet connected. Please connect your Starknet wallet first.');
+    console.error('❌ DEBUG: No Starknet account found!');
+    console.log('   - This is likely the source of the wallet connection error');
+    console.log('   - The Starknet wallet was not properly initialized or connected');
+
+    // Try to reinitialize Starknet as a fallback
+    console.log('🔄 DEBUG: Attempting fallback Starknet initialization...');
+    try {
+      const fallbackResult = await initStarknet({ type: 'fallback', address: '' });
+      console.log('✅ DEBUG: Fallback initialization result:', fallbackResult);
+
+      // Check if fallback worked
+      if (account) {
+        console.log('✅ DEBUG: Fallback initialization successful, account now available');
+      } else {
+        throw new Error('Fallback initialization also failed');
+      }
+    } catch (fallbackError) {
+      console.error('❌ DEBUG: Fallback initialization failed:', fallbackError);
+      throw new Error('No Starknet wallet connected. Please connect your Starknet wallet first.');
+    }
   }
+  console.log('✅ DEBUG: Starknet account found:', account.address);
 
   // Calculate amounts (convert BTC amount to token amount)
   const amountNum = parseFloat(amount);

@@ -239,6 +239,11 @@ export default function BridgePage() {
 
     console.log('🔗 handleWalletConnect called:', { type, address, detectedNetwork });
     console.log('📊 Wallet categorization:', { isBitcoinWallet, isStarknetWallet });
+    console.log('🔍 DEBUG: Wallet connection details:');
+    console.log('  - Type:', type);
+    console.log('  - Address:', address);
+    console.log('  - Is Bitcoin wallet:', isBitcoinWallet);
+    console.log('  - Is Starknet wallet:', isStarknetWallet);
 
     if (isBitcoinWallet) {
       console.log('💰 Setting Bitcoin wallet:', { type, address });
@@ -264,11 +269,33 @@ export default function BridgePage() {
       setStarknetWalletType(type);
 
       // Initialize Starknet bridge system with wallet connection
+      console.log('🔍 DEBUG: About to initialize Starknet with wallet connection...');
       try {
-        await initStarknet({ type, address: address || '' });
+        const initResult = await initStarknet({ type, address: address || '' });
         console.log('✅ Starknet bridge system initialized with wallet');
+        console.log('🔍 DEBUG: initStarknet result:', initResult);
+
+        // Verify that the account was actually set
+        const { getAccount } = await import('../utils/starknet');
+        const account = getAccount();
+        if (!account) {
+          console.error('❌ DEBUG: initStarknet completed but no account was set!');
+          throw new Error('Starknet wallet initialization failed - no account available');
+        }
+        console.log('✅ DEBUG: Account successfully set:', account.address);
       } catch (error) {
         console.error('❌ Failed to initialize Starknet with wallet:', error);
+        console.log('🔍 DEBUG: This error might be causing the wallet connection issue');
+
+        // If Starknet initialization fails, don't mark the wallet as connected
+        console.log('🔄 DEBUG: Resetting Starknet wallet connection due to initialization failure');
+        setStarknetWalletConnected(false);
+        setStarknetWalletAddress(null);
+        setStarknetWalletType(null);
+
+        // Show error to user
+        alert(`Failed to connect ${type} wallet: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        return; // Exit early
       }
 
       // Fetch real Starknet balance when wallet connects
@@ -490,11 +517,29 @@ export default function BridgePage() {
         bitcoinWalletConnected,
         bitcoinWalletType,
         starknetWalletConnected,
-        starknetWalletType
+        starknetWalletType,
+        bitcoinWalletAddress,
+        starknetWalletAddress
       });
 
+      // Debug: Check if wallets are properly initialized
+      console.log('🔍 Wallet initialization check:');
+      console.log('  - Bitcoin wallet connected:', bitcoinWalletConnected);
+      console.log('  - Bitcoin wallet type:', bitcoinWalletType);
+      console.log('  - Bitcoin wallet address:', bitcoinWalletAddress);
+      console.log('  - Starknet wallet connected:', starknetWalletConnected);
+      console.log('  - Starknet wallet type:', starknetWalletType);
+      console.log('  - Starknet wallet address:', starknetWalletAddress);
+
       // Validate wallet connections
+      console.log('🔍 Validating wallet connections for direction:', direction);
+
       if (direction === 'btc-to-stark') {
+        console.log('🔄 BTC → Starknet validation:');
+        console.log('  - Bitcoin wallet connected:', bitcoinWalletConnected);
+        console.log('  - Bitcoin wallet type:', bitcoinWalletType);
+        console.log('  - Starknet wallet connected:', starknetWalletConnected);
+
         if (!bitcoinWalletConnected || !bitcoinWalletType) {
           console.error('❌ Bitcoin wallet validation failed:', { bitcoinWalletConnected, bitcoinWalletType });
           throw new Error('Please connect a Bitcoin wallet to send BTC');
@@ -504,6 +549,11 @@ export default function BridgePage() {
           throw new Error('Please connect a Starknet wallet to receive tokens');
         }
       } else {
+        console.log('🔄 Starknet → BTC validation:');
+        console.log('  - Starknet wallet connected:', starknetWalletConnected);
+        console.log('  - Starknet wallet type:', starknetWalletType);
+        console.log('  - Bitcoin wallet connected:', bitcoinWalletConnected);
+
         if (!starknetWalletConnected || !starknetWalletType) {
           console.error('❌ Starknet wallet validation failed:', { starknetWalletConnected, starknetWalletType });
           throw new Error('Please connect a Starknet wallet to send STRK');
