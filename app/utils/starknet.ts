@@ -1122,11 +1122,11 @@ export async function bridgeBtcToToken(
   to: string,
   bitcoinWallet?: { type: string; address: string }
 ) {
-  console.log('🔄 Executing BTC → Token Bridge with Wallet Approval');
-  console.log('📊 Parameters:', { amount, btcAddress, tokenOut, minAmountOut, to, bitcoinWallet });
+  console.log('🔄 [BRIDGE DEBUG] Executing BTC → Token Bridge with Wallet Approval');
+  console.log('📊 [BRIDGE DEBUG] Parameters:', { amount, btcAddress, tokenOut, minAmountOut, to, bitcoinWallet });
 
   // Debug: Check global state
-  console.log('🔍 DEBUG: Global Starknet state:');
+  console.log('🔍 [BRIDGE DEBUG] Global Starknet state:');
   console.log('  - account:', account ? { address: account.address, type: account.type } : 'null');
   console.log('  - provider:', provider ? 'initialized' : 'null');
   console.log('  - bridgeContract:', bridgeContract ? 'initialized' : 'null');
@@ -1168,29 +1168,52 @@ export async function bridgeBtcToToken(
       throw new Error('No Starknet wallet connected. Please connect your Starknet wallet first.');
     }
   }
-  console.log('✅ DEBUG: Starknet account found:', account.address);
+  console.log('✅ [BRIDGE DEBUG] Starknet account found:', account.address);
 
   // Calculate amounts (convert BTC amount to token amount)
   const amountNum = parseFloat(amount);
   const fee = amountNum * 0.001; // 0.1% bridge fee
   const receivedAmount = amountNum - fee;
 
+  console.log('💰 [BRIDGE DEBUG] Amount calculations:', {
+    inputAmount: amountNum,
+    bridgeFee: fee,
+    receivedAmount,
+    minAmountOut: parseFloat(minAmountOut)
+  });
+
   // Check minimum output
   const minOutNum = parseFloat(minAmountOut);
   if (receivedAmount < minOutNum) {
+    console.error('❌ [BRIDGE DEBUG] Insufficient output amount check failed:', {
+      receivedAmount,
+      minAmountOut: minOutNum
+    });
     throw new Error(`Insufficient output amount: ${receivedAmount} < ${minOutNum}`);
   }
 
   // Convert to wei (assuming 18 decimals for ERC-20)
   const receivedAmountWei = BigInt(Math.floor(receivedAmount * Math.pow(10, 18)));
+  console.log('🔢 [BRIDGE DEBUG] Converted amounts:', {
+    receivedAmount,
+    receivedAmountWei: receivedAmountWei.toString()
+  });
 
   try {
     // Step 1: Bitcoin wallet approval (trigger actual BTC transfer)
-    console.log('🔄 Requesting Bitcoin wallet approval for BTC transfer...');
+    console.log('🔄 [BRIDGE DEBUG] Step 1: Requesting Bitcoin wallet approval for BTC transfer...');
 
     if (!bitcoinWallet) {
+      console.error('❌ [BRIDGE DEBUG] No Bitcoin wallet connected');
       throw new Error('No Bitcoin wallet connected. Please connect your Bitcoin wallet first.');
     }
+
+    console.log('🔗 [BRIDGE DEBUG] Triggering Bitcoin wallet transaction with params:', {
+      wallet: bitcoinWallet,
+      amount,
+      btcAddress,
+      recipient: to
+    });
 
     // Trigger actual Bitcoin wallet transaction
     const btcApproval = await triggerBitcoinWalletTransaction(bitcoinWallet, amount, btcAddress, to) as {
@@ -1202,16 +1225,21 @@ export async function bridgeBtcToToken(
       timestamp: number;
     };
 
+    console.log('📋 [BRIDGE DEBUG] Bitcoin wallet transaction result:', btcApproval);
+
     if (!btcApproval.approved) {
+      console.error('❌ [BRIDGE DEBUG] Bitcoin transaction rejected by wallet');
       throw new Error('Bitcoin transaction rejected by wallet');
     }
 
-    console.log('✅ Bitcoin wallet approved transaction:', btcApproval);
+    console.log('✅ [BRIDGE DEBUG] Bitcoin wallet approved transaction:', btcApproval);
 
     // Step 2: Simulate token minting on Starknet (handled by bridge backend)
-    console.log('🔄 Minting tokens on Starknet via bridge backend...');
+    console.log('🔄 [BRIDGE DEBUG] Step 2: Minting tokens on Starknet via bridge backend...');
+    console.log('⚠️ [BRIDGE DEBUG] WARNING: This is SIMULATED - no real minting occurs!');
 
     // Simulate network delay for token minting
+    console.log('⏳ [BRIDGE DEBUG] Simulating network delay for token minting (2 seconds)...');
     await new Promise(resolve => setTimeout(resolve, 2000));
 
     // Create mock transaction hash for Starknet side
@@ -1220,7 +1248,9 @@ export async function bridgeBtcToToken(
       status: 'confirmed'
     };
 
-    console.log('✅ Tokens minted on Starknet:', tx);
+    console.log('✅ [BRIDGE DEBUG] Tokens "minted" on Starknet (SIMULATED):', tx);
+    console.log('🚨 [BRIDGE DEBUG] CRITICAL: No actual tokens were minted on Starknet!');
+    console.log('🚨 [BRIDGE DEBUG] CRITICAL: Recipient', to, 'will NOT receive tokens!');
 
   // Wait for transaction confirmation (robust helper handles provider/account differences)
   const receipt = await waitForTransactionConfirmation(tx.transaction_hash);
@@ -1550,19 +1580,22 @@ export async function bridgeTokenToBtc(
   minBtcOut: string,
   starknetWallet?: { type: string; address: string }
 ) {
-  console.log('🔄 Executing Token → BTC Bridge with Wallet Approval');
-  console.log('📊 Parameters:', { tokenIn, amountIn, btcAddress, minBtcOut, starknetWallet });
+  console.log('🔄 [BRIDGE DEBUG] Executing Token → BTC Bridge with Wallet Approval');
+  console.log('📊 [BRIDGE DEBUG] Parameters:', { tokenIn, amountIn, btcAddress, minBtcOut, starknetWallet });
 
   // Validate inputs
   if (!amountIn || parseFloat(amountIn) <= 0) {
+    console.error('❌ [BRIDGE DEBUG] Invalid amount validation failed');
     throw new Error('Invalid amount: must be greater than 0');
   }
 
   if (!btcAddress || btcAddress.length < 20) {
+    console.error('❌ [BRIDGE DEBUG] Invalid Bitcoin address validation failed');
     throw new Error('Invalid Bitcoin address format');
   }
 
   if (!account) {
+    console.error('❌ [BRIDGE DEBUG] No Starknet wallet connected');
     throw new Error('No Starknet wallet connected. Please connect your Starknet wallet first.');
   }
 
@@ -1571,9 +1604,20 @@ export async function bridgeTokenToBtc(
   const fee = amountNum * 0.002; // 0.2% bridge fee for token to BTC
   const receivedAmount = amountNum - fee;
 
+  console.log('💰 [BRIDGE DEBUG] Amount calculations:', {
+    inputAmount: amountNum,
+    bridgeFee: fee,
+    receivedAmount,
+    minBtcOut: parseFloat(minBtcOut)
+  });
+
   // Check minimum output
   const minOutNum = parseFloat(minBtcOut);
   if (receivedAmount < minOutNum) {
+    console.error('❌ [BRIDGE DEBUG] Insufficient output amount check failed:', {
+      receivedAmount,
+      minAmountOut: minOutNum
+    });
     throw new Error(`Insufficient output amount: ${receivedAmount} < ${minOutNum}`);
   }
 
@@ -1581,9 +1625,22 @@ export async function bridgeTokenToBtc(
   const amountInWei = BigInt(Math.floor(amountNum * Math.pow(10, 18)));
   const minBtcOutWei = BigInt(Math.floor(receivedAmount * Math.pow(10, 18))); // Convert BTC amount to wei for min output
 
+  console.log('🔢 [BRIDGE DEBUG] Converted amounts:', {
+    amountInWei: amountInWei.toString(),
+    minBtcOutWei: minBtcOutWei.toString()
+  });
+
   try {
     // Step 1: Starknet wallet approval for token burning
-    console.log('🔄 Requesting Starknet wallet approval for token burning...');
+    console.log('🔄 [BRIDGE DEBUG] Step 1: Requesting Starknet wallet approval for token burning...');
+
+    console.log('🔗 [BRIDGE DEBUG] Triggering Starknet wallet transaction with params:', {
+      wallet: starknetWallet,
+      amount: amountIn,
+      tokenIn,
+      btcAddress,
+      minBtcOut
+    });
 
     // Trigger actual Starknet wallet transaction
     const starknetApproval = await triggerStarknetWalletTransaction(starknetWallet!, amountIn, tokenIn, btcAddress, minBtcOut) as {
@@ -1595,27 +1652,35 @@ export async function bridgeTokenToBtc(
       timestamp: number;
     };
 
+    console.log('📋 [BRIDGE DEBUG] Starknet wallet transaction result:', starknetApproval);
+
     if (!starknetApproval.approved) {
       // Check if this is a user cancel (tx_hash is empty for user abort)
       if (starknetApproval.tx_hash === '') {
+        console.error('❌ [BRIDGE DEBUG] Starknet transaction cancelled by user');
         throw new Error('Starknet transaction cancelled by user');
       } else {
+        console.error('❌ [BRIDGE DEBUG] Starknet transaction rejected by wallet');
         throw new Error('Starknet transaction rejected by wallet');
       }
     }
 
-    console.log('✅ Starknet wallet approved transaction:', starknetApproval);
+    console.log('✅ [BRIDGE DEBUG] Starknet wallet approved transaction:', starknetApproval);
 
   // Wait for transaction confirmation (robust helper handles provider/account differences)
+  console.log('⏳ [BRIDGE DEBUG] Waiting for Starknet transaction confirmation...');
   const receipt = await waitForTransactionConfirmation(starknetApproval.tx_hash);
+  console.log('✅ [BRIDGE DEBUG] Starknet transaction confirmed:', receipt);
 
     // Step 2: Simulate BTC crediting (would happen on Bitcoin network in real bridge)
-    console.log('🔄 Crediting BTC to recipient address...');
+    console.log('🔄 [BRIDGE DEBUG] Step 2: Crediting BTC to recipient address...');
+    console.log('⚠️ [BRIDGE DEBUG] WARNING: This is SIMULATED - no real BTC is sent!');
     await simulateBTCCrediting(btcAddress, receivedAmount);
 
-    console.log('✅ Token → BTC Bridge completed successfully');
-    console.log('📈 Bridged:', amountIn, 'tokens →', receivedAmount, 'BTC');
-    console.log('🏷️ Transaction Hash:', starknetApproval.tx_hash);
+    console.log('✅ [BRIDGE DEBUG] Token → BTC Bridge completed successfully (SIMULATED)');
+    console.log('📈 [BRIDGE DEBUG] Bridged:', amountIn, 'tokens →', receivedAmount, 'BTC');
+    console.log('🏷️ [BRIDGE DEBUG] Transaction Hash:', starknetApproval.tx_hash);
+    console.log('🚨 [BRIDGE DEBUG] CRITICAL: No actual BTC was sent to', btcAddress, '!');
 
     return {
       transaction_hash: starknetApproval.tx_hash,
@@ -1894,12 +1959,15 @@ async function triggerStarknetWalletTransaction(wallet: { type: string; address:
 
 // Helper function to simulate BTC crediting
 async function simulateBTCCrediting(btcAddress: string, amount: number) {
-  console.log(`🎭 Simulating BTC crediting of ${amount} BTC to ${btcAddress}`);
+  console.log(`🎭 [BRIDGE DEBUG] SIMULATING BTC crediting of ${amount} BTC to ${btcAddress}`);
+  console.log(`🚨 [BRIDGE DEBUG] CRITICAL: This is just a simulation - NO REAL BTC IS SENT!`);
 
   // Simulate Bitcoin network delay
+  console.log(`⏳ [BRIDGE DEBUG] Simulating Bitcoin network delay (3 seconds)...`);
   await new Promise(resolve => setTimeout(resolve, 3000));
 
-  console.log(`✅ BTC credited successfully to ${btcAddress}`);
+  console.log(`✅ [BRIDGE DEBUG] BTC "credited" successfully to ${btcAddress} (SIMULATED)`);
+  console.log(`🚨 [BRIDGE DEBUG] REMINDER: Check your Bitcoin wallet - you should NOT see any BTC there!`);
 }
 
 export async function swapTokenToToken(
