@@ -1,6 +1,51 @@
 import { Contract, Account, Provider, constants } from 'starknet';
 import { connect } from '@starknet-io/get-starknet';
 
+// Third-Party Service Exception Classes
+export class ThirdPartyServiceException extends Error {
+  constructor(
+    message: string,
+    public serviceName: string,
+    public serviceType: 'bitcoin_wallet' | 'starknet_wallet' | 'bridge_contract' | 'network_provider' | 'external_api',
+    public originalError?: Error
+  ) {
+    super(message);
+    this.name = 'ThirdPartyServiceException';
+  }
+
+  toString(): string {
+    return `${this.serviceName} (${this.serviceType}): ${this.message}`;
+  }
+}
+
+export class BitcoinWalletException extends ThirdPartyServiceException {
+  constructor(message: string, walletType: string, originalError?: Error) {
+    super(message, walletType, 'bitcoin_wallet', originalError);
+    this.name = 'BitcoinWalletException';
+  }
+}
+
+export class StarknetWalletException extends ThirdPartyServiceException {
+  constructor(message: string, walletType: string, originalError?: Error) {
+    super(message, walletType, 'starknet_wallet', originalError);
+    this.name = 'StarknetWalletException';
+  }
+}
+
+export class BridgeContractException extends ThirdPartyServiceException {
+  constructor(message: string, contractAddress: string, originalError?: Error) {
+    super(message, contractAddress, 'bridge_contract', originalError);
+    this.name = 'BridgeContractException';
+  }
+}
+
+export class NetworkProviderException extends ThirdPartyServiceException {
+  constructor(message: string, providerType: string, originalError?: Error) {
+    super(message, providerType, 'network_provider', originalError);
+    this.name = 'NetworkProviderException';
+  }
+}
+
 // Contract addresses for real tokens on Starknet
 export const STRK_TOKEN_ADDRESS = '0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d';
 export const BTC_TOKEN_ADDRESS = '0x03fe2b97c1fd336e750087d68b9b867997fd64a2661ff3ff6d16c6502f95e7a6e8';
@@ -907,42 +952,61 @@ export async function initStarknet(walletConnection?: { type: string; address: s
       console.log('🔍 DEBUG: Attempting to connect to actual Starknet wallet...');
       // Connect to actual Starknet wallet
       let walletAccount = null;
+      let walletType = 'unknown';
 
-      switch (walletConnection.type.toLowerCase()) {
-        case 'ready':
-          console.log('🔍 DEBUG: Checking for Argent X (Ready) wallet...');
-          if (typeof window !== 'undefined' && window.starknet_argentX) {
-            walletAccount = window.starknet_argentX.account;
-            console.log('🔗 Connecting to Argent X (Ready) wallet...');
-            console.log('  - Wallet available:', !!window.starknet_argentX);
-            console.log('  - Account available:', !!walletAccount);
-          } else {
-            console.log('❌ DEBUG: Argent X wallet not found in window object');
-          }
-          break;
-        case 'braavos':
-          console.log('🔍 DEBUG: Checking for Braavos wallet...');
-          if (typeof window !== 'undefined' && window.starknet_braavos) {
-            walletAccount = window.starknet_braavos.account;
-            console.log('🔗 Connecting to Braavos wallet...');
-            console.log('  - Wallet available:', !!window.starknet_braavos);
-            console.log('  - Account available:', !!walletAccount);
-          } else {
-            console.log('❌ DEBUG: Braavos wallet not found in window object');
-          }
-          break;
-        case 'metamask':
-          console.log('🔍 DEBUG: Checking for MetaMask Starknet wallet...');
-          // MetaMask with Starknet support
-          if (typeof window !== 'undefined' && window.ethereum && window.ethereum.starknet) {
-            walletAccount = window.ethereum.starknet.account;
-            console.log('🔗 Connecting to MetaMask Starknet wallet...');
-            console.log('  - Wallet available:', !!window.ethereum.starknet);
-            console.log('  - Account available:', !!walletAccount);
-          } else {
-            console.log('❌ DEBUG: MetaMask Starknet wallet not found');
-          }
-          break;
+      try {
+        switch (walletConnection.type.toLowerCase()) {
+          case 'ready':
+            walletType = 'ArgentX';
+            console.log('🔍 DEBUG: Checking for Argent X (Ready) wallet...');
+            if (typeof window !== 'undefined' && window.starknet_argentX) {
+              walletAccount = window.starknet_argentX.account;
+              console.log('🔗 Connecting to Argent X (Ready) wallet...');
+              console.log('  - Wallet available:', !!window.starknet_argentX);
+              console.log('  - Account available:', !!walletAccount);
+            } else {
+              throw new StarknetWalletException('Argent X wallet not found in window object', walletType);
+            }
+            break;
+          case 'braavos':
+            walletType = 'Braavos';
+            console.log('🔍 DEBUG: Checking for Braavos wallet...');
+            if (typeof window !== 'undefined' && window.starknet_braavos) {
+              walletAccount = window.starknet_braavos.account;
+              console.log('🔗 Connecting to Braavos wallet...');
+              console.log('  - Wallet available:', !!window.starknet_braavos);
+              console.log('  - Account available:', !!walletAccount);
+            } else {
+              throw new StarknetWalletException('Braavos wallet not found in window object', walletType);
+            }
+            break;
+          case 'metamask':
+            walletType = 'MetaMask';
+            console.log('🔍 DEBUG: Checking for MetaMask Starknet wallet...');
+            // MetaMask with Starknet support
+            if (typeof window !== 'undefined' && window.ethereum && window.ethereum.starknet) {
+              walletAccount = window.ethereum.starknet.account;
+              console.log('🔗 Connecting to MetaMask Starknet wallet...');
+              console.log('  - Wallet available:', !!window.ethereum.starknet);
+              console.log('  - Account available:', !!walletAccount);
+            } else {
+              throw new StarknetWalletException('MetaMask Starknet wallet not found', walletType);
+            }
+            break;
+          default:
+            walletType = walletConnection.type;
+            console.log(`🔍 DEBUG: Unsupported wallet type: ${walletType}`);
+            throw new StarknetWalletException(`Unsupported Starknet wallet type: ${walletType}`, walletType);
+        }
+      } catch (walletError) {
+        if (walletError instanceof StarknetWalletException) {
+          throw walletError;
+        }
+        throw new StarknetWalletException(
+          `Failed to connect to ${walletType} wallet: ${walletError instanceof Error ? walletError.message : 'Unknown error'}`,
+          walletType,
+          walletError instanceof Error ? walletError : undefined
+        );
       }
 
       if (walletAccount) {
@@ -968,20 +1032,35 @@ export async function initStarknet(walletConnection?: { type: string; address: s
       console.log('✅ Initialized with demo account:', account.address);
     }
 
-    // Create provider based on network mode (use starknet.js Provider so waitForTransaction is available)
-            // Cast options to any because the library's TypeScript types may not include the `sequencer` property in this environment.
-            provider = new Provider({
-              sequencer: {
-                network: currentNetworkMode === 'testnet' ? 'goerli-alpha' : 'mainnet-alpha'
-              }
-            } as any);
+    // Create provider based on network mode
+    try {
+      provider = new Provider({
+        sequencer: {
+          network: currentNetworkMode === 'testnet' ? 'goerli-alpha' : 'mainnet-alpha'
+        }
+      } as any);
+    } catch (providerError) {
+      throw new NetworkProviderException(
+        `Failed to initialize Starknet provider for ${currentNetworkMode}: ${providerError instanceof Error ? providerError.message : 'Unknown error'}`,
+        currentNetworkMode,
+        providerError instanceof Error ? providerError : undefined
+      );
+    }
 
     // Create bridge contract
-    bridgeContract = {
-      address: BRIDGE_CONTRACT_ADDRESS,
-      connected: true,
-      account: account
-    } as any;
+    try {
+      bridgeContract = {
+        address: BRIDGE_CONTRACT_ADDRESS,
+        connected: true,
+        account: account
+      } as any;
+    } catch (contractError) {
+      throw new BridgeContractException(
+        `Failed to create bridge contract instance: ${contractError instanceof Error ? contractError.message : 'Unknown error'}`,
+        BRIDGE_CONTRACT_ADDRESS,
+        contractError instanceof Error ? contractError : undefined
+      );
+    }
 
     console.log('✅ Starknet bridge system initialized successfully');
     console.log('🌐 Network:', currentNetworkMode);
@@ -990,9 +1069,19 @@ export async function initStarknet(walletConnection?: { type: string; address: s
     return { account, provider, bridgeContract };
   } catch (error) {
     console.error('Failed to initialize Starknet:', error);
-    // Don't throw - allow the app to work in demo mode
-    console.warn('⚠️ Continuing in demo mode despite initialization error');
-    return { account: null, provider: null, bridgeContract: null };
+    
+    // Re-throw ThirdPartyServiceException instances
+    if (error instanceof ThirdPartyServiceException) {
+      throw error;
+    }
+    
+    // Wrap other errors
+    throw new ThirdPartyServiceException(
+      `Starknet initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      'starknet_initialization',
+      'starknet_wallet',
+      error instanceof Error ? error : undefined
+    );
   }
 }
 
@@ -1018,35 +1107,73 @@ export async function waitForTransactionConfirmation(txHash?: string | null, tim
     try {
       // If account (wallet) provides waiting helper, use it
       if (account && typeof (account as any).waitForTransaction === 'function') {
-        return await (account as any).waitForTransaction(txHash);
+        try {
+          return await (account as any).waitForTransaction(txHash);
+        } catch (walletError) {
+          throw new StarknetWalletException(
+            `Wallet transaction confirmation failed: ${walletError instanceof Error ? walletError.message : 'Unknown error'}`,
+            account.type || 'unknown',
+            walletError instanceof Error ? walletError : undefined
+          );
+        }
       }
 
       // If provider has waitForTransaction (starknet.js Provider), use it
       if (provider && typeof (provider as any).waitForTransaction === 'function') {
-        return await (provider as any).waitForTransaction(txHash);
+        try {
+          return await (provider as any).waitForTransaction(txHash);
+        } catch (providerError) {
+          throw new NetworkProviderException(
+            `Provider transaction confirmation failed: ${providerError instanceof Error ? providerError.message : 'Unknown error'}`,
+            'starknet_js',
+            providerError instanceof Error ? providerError : undefined
+          );
+        }
       }
 
       // Fallback: try getTransactionReceipt polling
       if (provider && typeof (provider as any).getTransactionReceipt === 'function') {
-        const receipt = await (provider as any).getTransactionReceipt(txHash);
-        if (receipt && (receipt.status === 'ACCEPTED_ON_L2' || receipt.status === 'ACCEPTED_ON_L1')) return receipt;
-        if (receipt && receipt.status === 'REJECTED') throw new Error('Transaction rejected');
+        try {
+          const receipt = await (provider as any).getTransactionReceipt(txHash);
+          if (receipt && (receipt.status === 'ACCEPTED_ON_L2' || receipt.status === 'ACCEPTED_ON_L1')) return receipt;
+          if (receipt && receipt.status === 'REJECTED') throw new Error('Transaction rejected');
+        } catch (receiptError) {
+          throw new NetworkProviderException(
+            `Failed to get transaction receipt: ${receiptError instanceof Error ? receiptError.message : 'Unknown error'}`,
+            'starknet_js',
+            receiptError instanceof Error ? receiptError : undefined
+          );
+        }
       }
 
       // Older provider method: getTransactionStatus
       if (provider && typeof (provider as any).getTransactionStatus === 'function') {
-        const status = await (provider as any).getTransactionStatus(txHash);
-        if (status === 'ACCEPTED_ON_L2' || status === 'ACCEPTED_ON_L1') return { status };
-        if (status === 'REJECTED') throw new Error('Transaction rejected');
+        try {
+          const status = await (provider as any).getTransactionStatus(txHash);
+          if (status === 'ACCEPTED_ON_L2' || status === 'ACCEPTED_ON_L1') return { status };
+          if (status === 'REJECTED') throw new Error('Transaction rejected');
+        } catch (statusError) {
+          throw new NetworkProviderException(
+            `Failed to get transaction status: ${statusError instanceof Error ? statusError.message : 'Unknown error'}`,
+            'starknet_js',
+            statusError instanceof Error ? statusError : undefined
+          );
+        }
       }
     } catch (err) {
+      if (err instanceof ThirdPartyServiceException) {
+        throw err;
+      }
       console.warn('waitForTransaction attempt failed:', err);
     }
 
     await new Promise(res => setTimeout(res, pollInterval));
   }
 
-  throw new Error('Timed out waiting for transaction confirmation');
+  throw new NetworkProviderException(
+    `Transaction confirmation timeout after ${timeoutMs}ms`,
+    'starknet_js'
+  );
 }
 
 // Utility functions for contract interactions
@@ -1295,115 +1422,137 @@ async function triggerBitcoinWalletTransaction(wallet: { type: string; address: 
   try {
     switch (wallet.type.toLowerCase()) {
       case 'xverse': {
-        return new Promise((resolve, reject) => {
-          // Import Sats Connect functions dynamically
-          import('@sats-connect/core').then(async ({ signTransaction, getAddress, AddressPurpose, BitcoinNetworkType }) => {
-            try {
-              console.log('🔄 Connecting to Xverse wallet for transaction...');
+        try {
+          return await new Promise((resolve, reject) => {
+            // Import Sats Connect functions dynamically
+            import('@sats-connect/core').then(async ({ signTransaction, getAddress, AddressPurpose, BitcoinNetworkType }) => {
+              try {
+                console.log('🔄 Connecting to Xverse wallet for transaction...');
 
-              // Get fresh address to ensure wallet connection
-              const networkType = currentNetworkMode === 'testnet' ? BitcoinNetworkType.Testnet : BitcoinNetworkType.Mainnet;
+                // Get fresh address to ensure wallet connection
+                const networkType = currentNetworkMode === 'testnet' ? BitcoinNetworkType.Testnet : BitcoinNetworkType.Mainnet;
 
-              getAddress({
-                payload: {
-                  purposes: [AddressPurpose.Payment],
-                  message: `Bridge ${amount} BTC to Starknet`,
-                  network: { type: networkType }
-                },
-                onFinish: async (addressResponse) => {
-                  try {
-                    console.log('📋 Xverse address response:', addressResponse);
+                getAddress({
+                  payload: {
+                    purposes: [AddressPurpose.Payment],
+                    message: `Bridge ${amount} BTC to Starknet`,
+                    network: { type: networkType }
+                  },
+                  onFinish: async (addressResponse) => {
+                    try {
+                      console.log('📋 Xverse address response:', addressResponse);
 
-                    if (!addressResponse.addresses || addressResponse.addresses.length === 0) {
-                      reject(new Error('No addresses received from Xverse'));
-                      return;
-                    }
-
-                    // Find payment address
-                    const paymentAddress = addressResponse.addresses.find((addr: any) =>
-                      addr.purpose === AddressPurpose.Payment || addr.addressType === 'p2pkh'
-                    );
-
-                    if (!paymentAddress) {
-                      reject(new Error('No payment address found in Xverse'));
-                      return;
-                    }
-
-                    // Bridge contract address (mainnet/testnet)
-                    const bridgeAddress = currentNetworkMode === 'testnet'
-                      ? 'tb1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh'
-                      : 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh';
-
-                    const amountSatoshis = Math.floor(parseFloat(amount) * 100000000);
-
-                    console.log(`🔄 Creating Xverse transaction: ${amountSatoshis} sats from ${btcAddress} to ${bridgeAddress}`);
-
-                    // Calculate expected receive amount and fee
-                    const expectedReceive = (parseFloat(amount) * 0.999).toFixed(6);
-                    const bridgeFee = (parseFloat(amount) * 0.001).toFixed(6);
-
-                    // Create transaction data for signing
-                    const transactionData = {
-                      address: btcAddress,
-                      amount: amountSatoshis,
-                      recipientAddress: bridgeAddress,
-                      recipientAmount: amountSatoshis,
-                      memo: `Bridge ${amount} BTC to Starknet\nReceive: ${expectedReceive} STRK\nTo: ${recipientAddress}\nBridge Fee: ${bridgeFee} BTC`
-                    };
-
-                    console.log('📋 Transaction data for Xverse:', transactionData);
-
-                    // Use sendBtcTransaction for direct transaction sending
-                    const { sendBtcTransaction } = await import('@sats-connect/core');
-
-                    sendBtcTransaction({
-                      payload: {
-                        network: { type: networkType },
-                        recipients: [{
-                          address: bridgeAddress,
-                          amountSats: BigInt(amountSatoshis)
-                        }],
-                        senderAddress: btcAddress,
-                        message: `Bridge ${amount} BTC to Starknet - Receive ${expectedReceive} STRK`
-                      },
-                      onFinish: (txId) => {
-                        console.log('✅ Xverse transaction completed:', txId);
-
-                        if (txId) {
-                          resolve({
-                            approved: true,
-                            tx_hash: txId,
-                            wallet_type: wallet.type,
-                            amount,
-                            from_address: btcAddress,
-                            to_address: bridgeAddress,
-                            timestamp: Date.now()
-                          });
-                        } else {
-                          reject(new Error('Transaction failed - no txId returned'));
-                        }
-                      },
-                      onCancel: () => {
-                        console.log('❌ Xverse transaction cancelled by user');
-                        reject(new Error('Transaction cancelled by user'));
+                      if (!addressResponse.addresses || addressResponse.addresses.length === 0) {
+                        reject(new BitcoinWalletException('No addresses received from Xverse', wallet.type));
+                        return;
                       }
-                    });
-                  } catch (error) {
-                    console.error('❌ Xverse transaction setup failed:', error);
-                    reject(error);
+
+                      // Find payment address
+                      const paymentAddress = addressResponse.addresses.find((addr: any) =>
+                        addr.purpose === AddressPurpose.Payment || addr.addressType === 'p2pkh'
+                      );
+
+                      if (!paymentAddress) {
+                        reject(new BitcoinWalletException('No payment address found in Xverse', wallet.type));
+                        return;
+                      }
+
+                      // Bridge contract address (mainnet/testnet)
+                      const bridgeAddress = currentNetworkMode === 'testnet'
+                        ? 'tb1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh'
+                        : 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh';
+
+                      const amountSatoshis = Math.floor(parseFloat(amount) * 100000000);
+
+                      console.log(`🔄 Creating Xverse transaction: ${amountSatoshis} sats from ${btcAddress} to ${bridgeAddress}`);
+
+                      // Calculate expected receive amount and fee
+                      const expectedReceive = (parseFloat(amount) * 0.999).toFixed(6);
+                      const bridgeFee = (parseFloat(amount) * 0.001).toFixed(6);
+
+                      console.log('📋 Transaction data for Xverse:', {
+                        address: btcAddress,
+                        amount: amountSatoshis,
+                        recipientAddress: bridgeAddress,
+                        recipientAmount: amountSatoshis,
+                        memo: `Bridge ${amount} BTC to Starknet\nReceive: ${expectedReceive} STRK\nTo: ${recipientAddress}\nBridge Fee: ${bridgeFee} BTC`
+                      });
+
+                      // Use sendBtcTransaction for direct transaction sending
+                      const { sendBtcTransaction } = await import('@sats-connect/core');
+
+                      sendBtcTransaction({
+                        payload: {
+                          network: { type: networkType },
+                          recipients: [{
+                            address: bridgeAddress,
+                            amountSats: BigInt(amountSatoshis)
+                          }],
+                          senderAddress: btcAddress,
+                          message: `Bridge ${amount} BTC to Starknet - Receive ${expectedReceive} STRK`
+                        },
+                        onFinish: (txId) => {
+                          console.log('✅ Xverse transaction completed:', txId);
+
+                          if (txId) {
+                            resolve({
+                              approved: true,
+                              tx_hash: txId,
+                              wallet_type: wallet.type,
+                              amount,
+                              from_address: btcAddress,
+                              to_address: bridgeAddress,
+                              timestamp: Date.now()
+                            });
+                          } else {
+                            reject(new BitcoinWalletException('Transaction failed - no txId returned', wallet.type));
+                          }
+                        },
+                        onCancel: () => {
+                          console.log('❌ Xverse transaction cancelled by user');
+                          reject(new BitcoinWalletException('Transaction cancelled by user', wallet.type));
+                        }
+                      });
+                    } catch (error) {
+                      console.error('❌ Xverse transaction setup failed:', error);
+                      reject(new BitcoinWalletException(
+                        `Xverse transaction setup failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+                        wallet.type,
+                        error instanceof Error ? error : undefined
+                      ));
+                    }
+                  },
+                  onCancel: () => {
+                    console.log('❌ Xverse address request cancelled');
+                    reject(new BitcoinWalletException('Address request cancelled by user', wallet.type));
                   }
-                },
-                onCancel: () => {
-                  console.log('❌ Xverse address request cancelled');
-                  reject(new Error('Address request cancelled by user'));
-                }
-              });
-            } catch (error) {
-              console.error('❌ Xverse import or setup failed:', error);
-              reject(error);
-            }
-          }).catch(reject);
-        });
+                });
+              } catch (error) {
+                console.error('❌ Xverse import or setup failed:', error);
+                reject(new BitcoinWalletException(
+                  `Xverse import or setup failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+                  wallet.type,
+                  error instanceof Error ? error : undefined
+                ));
+              }
+            }).catch((importError) => {
+              reject(new BitcoinWalletException(
+                `Failed to import @sats-connect/core: ${importError instanceof Error ? importError.message : 'Unknown error'}`,
+                wallet.type,
+                importError instanceof Error ? importError : undefined
+              ));
+            });
+          });
+        } catch (xverseError) {
+          if (xverseError instanceof BitcoinWalletException) {
+            throw xverseError;
+          }
+          throw new BitcoinWalletException(
+            `Xverse wallet operation failed: ${xverseError instanceof Error ? xverseError.message : 'Unknown error'}`,
+            wallet.type,
+            xverseError instanceof Error ? xverseError : undefined
+          );
+        }
       }
 
       case 'unisat': {
@@ -1432,11 +1581,15 @@ async function triggerBitcoinWalletTransaction(wallet: { type: string; address: 
               }
             } catch (accountError) {
               console.error('❌ Account acquisition failed:', accountError);
-              throw new Error('Failed to access Unisat wallet. Please unlock your wallet and try again.');
+              throw new BitcoinWalletException(
+                `Failed to access Unisat wallet. Please unlock your wallet and try again: ${accountError instanceof Error ? accountError.message : 'Unknown error'}`,
+                wallet.type,
+                accountError instanceof Error ? accountError : undefined
+              );
             }
 
             if (!walletAccount) {
-              throw new Error('No Unisat account available. Please ensure your wallet is properly connected.');
+              throw new BitcoinWalletException('No Unisat account available. Please ensure your wallet is properly connected.', wallet.type);
             }
 
             // Phase 2: Validate and get wallet state
@@ -1459,7 +1612,10 @@ async function triggerBitcoinWalletTransaction(wallet: { type: string; address: 
             console.log(`💰 Balance: ${balance.total} sats, Need: ${amountSatoshis} sats`);
             
             if (balance.total < amountSatoshis) {
-              throw new Error(`Insufficient balance: ${balance.total} < ${amountSatoshis} satoshis`);
+              throw new BitcoinWalletException(
+                `Insufficient balance: ${balance.total} < ${amountSatoshis} satoshis`,
+                wallet.type
+              );
             }
 
             // Phase 3: EXECUTE TRANSACTION WITH ZERO EXTERNAL DEPENDENCIES
@@ -1503,23 +1659,47 @@ async function triggerBitcoinWalletTransaction(wallet: { type: string; address: 
             console.error(`   Type: ${operationError.constructor.name}`);
             console.error(`   Context: Unisat wallet operation`);
             
-            // Convert Unisat errors to user-friendly messages
+            // Convert Unisat errors to BitcoinWalletException
             if (operationError.message?.includes('insufficient') || operationError.message?.includes('balance')) {
-              throw new Error(`Insufficient funds in Unisat wallet: ${operationError.message}`);
+              throw new BitcoinWalletException(
+                `Insufficient funds in Unisat wallet: ${operationError.message}`,
+                wallet.type,
+                operationError
+              );
             } else if (operationError.message?.includes('network') || operationError.message?.includes('chain')) {
-              throw new Error(`Network issue: ${operationError.message}. Please check your wallet network setting.`);
+              throw new BitcoinWalletException(
+                `Network issue: ${operationError.message}. Please check your wallet network setting.`,
+                wallet.type,
+                operationError
+              );
             } else if (operationError.message?.includes('denied') || operationError.message?.includes('reject')) {
-              throw new Error('Transaction denied by Unisat wallet. Please approve the transaction when prompted.');
+              throw new BitcoinWalletException(
+                'Transaction denied by Unisat wallet. Please approve the transaction when prompted.',
+                wallet.type,
+                operationError
+              );
             } else if (operationError.message?.includes('locked') || operationError.message?.includes('password')) {
-              throw new Error('Unisat wallet is locked. Please unlock your wallet and try again.');
+              throw new BitcoinWalletException(
+                'Unisat wallet is locked. Please unlock your wallet and try again.',
+                wallet.type,
+                operationError
+              );
             } else if (operationError.message?.includes('address') || operationError.message?.includes('invalid')) {
-              throw new Error(`Unisat address issue: ${operationError.message}. Please check your wallet connection.`);
+              throw new BitcoinWalletException(
+                `Unisat address issue: ${operationError.message}. Please check your wallet connection.`,
+                wallet.type,
+                operationError
+              );
             } else {
-              throw new Error(`Unisat operation failed: ${operationError.message || 'Unknown error'}`);
+              throw new BitcoinWalletException(
+                `Unisat operation failed: ${operationError.message || 'Unknown error'}`,
+                wallet.type,
+                operationError
+              );
             }
           }
         } else {
-          throw new Error('Unisat wallet extension not found. Please install Unisat and refresh the page.');
+          throw new BitcoinWalletException('Unisat wallet extension not found. Please install Unisat and refresh the page.', wallet.type);
         }
       }
 
@@ -1528,23 +1708,31 @@ async function triggerBitcoinWalletTransaction(wallet: { type: string; address: 
         if (typeof window !== 'undefined' && (window as any).bitcoin) {
           const bitcoinProvider = (window as any).bitcoin;
 
-          console.log(`🔄 Attempting generic Bitcoin wallet transaction for ${wallet.type}`);
+          try {
+            console.log(`🔄 Attempting generic Bitcoin wallet transaction for ${wallet.type}`);
 
-          const amountSatoshis = Math.floor(parseFloat(amount) * 100000000);
-          const bridgeAddress = currentNetworkMode === 'testnet'
-            ? 'tb1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh'
-            : 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh';
+            const amountSatoshis = Math.floor(parseFloat(amount) * 100000000);
+            const bridgeAddress = currentNetworkMode === 'testnet'
+              ? 'tb1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh'
+              : 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh';
 
-          const txid = await bitcoinProvider.sendBitcoin(bridgeAddress, amountSatoshis);
+            const txid = await bitcoinProvider.sendBitcoin(bridgeAddress, amountSatoshis);
 
-          return {
-            approved: true,
-            tx_hash: txid,
-            wallet_type: wallet.type,
-            amount,
-            from_address: btcAddress,
-            timestamp: Date.now()
-          };
+            return {
+              approved: true,
+              tx_hash: txid,
+              wallet_type: wallet.type,
+              amount,
+              from_address: btcAddress,
+              timestamp: Date.now()
+            };
+          } catch (genericError) {
+            throw new BitcoinWalletException(
+              `Generic Bitcoin wallet transaction failed: ${genericError instanceof Error ? genericError.message : 'Unknown error'}`,
+              wallet.type,
+              genericError instanceof Error ? genericError : undefined
+            );
+          }
         }
 
         // Fallback - show confirmation dialog
@@ -1554,7 +1742,7 @@ async function triggerBitcoinWalletTransaction(wallet: { type: string; address: 
         const approved = confirm(`🔄 ${wallet.type.toUpperCase()} WALLET APPROVAL\n\nBridge ${amount} BTC to Starknet\nReceive: ${expectedReceive} STRK\nTo: ${recipientAddress}\nBridge Fee: ${bridgeFee} BTC\n\nFrom: ${btcAddress}\n\nClick OK to approve, Cancel to reject.`);
 
         if (!approved) {
-          throw new Error('Transaction cancelled by user');
+          throw new BitcoinWalletException('Transaction cancelled by user', wallet.type);
         }
 
         return {
@@ -1569,7 +1757,16 @@ async function triggerBitcoinWalletTransaction(wallet: { type: string; address: 
     }
   } catch (error: any) {
     console.error(`❌ Bitcoin wallet transaction failed for ${wallet.type}:`, error);
-    throw new Error(`Wallet transaction failed: ${error.message}`);
+    
+    if (error instanceof BitcoinWalletException) {
+      throw error;
+    }
+    
+    throw new BitcoinWalletException(
+      `Bitcoin wallet transaction failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      wallet.type,
+      error instanceof Error ? error : undefined
+    );
   }
 }
 
@@ -1716,63 +1913,71 @@ async function triggerStarknetWalletTransaction(wallet: { type: string; address:
         if (typeof window !== 'undefined' && (window as any).starknet_argentX) {
           const argentX = (window as any).starknet_argentX;
 
-          console.log('🔄 Triggering ArgentX wallet popup for Starknet token burning...');
+          try {
+            console.log('🔄 Triggering ArgentX wallet popup for Starknet token burning...');
 
-          // Ensure wallet is connected
-          if (!argentX.isConnected) {
-            console.log('🔄 ArgentX not connected, requesting connection...');
-            await argentX.enable();
+            // Ensure wallet is connected
+            if (!argentX.isConnected) {
+              console.log('🔄 ArgentX not connected, requesting connection...');
+              await argentX.enable();
+            }
+
+            // Get account
+            const account = argentX.account;
+            if (!account) {
+              throw new StarknetWalletException('ArgentX account not available', wallet.type);
+            }
+
+            // Convert addresses and amounts
+            const amountInWei = BigInt(Math.floor(parseFloat(amount) * Math.pow(10, 18)));
+            const minBtcOutWei = BigInt(Math.floor(parseFloat(minBtcOut) * Math.pow(10, 18)));
+            const amountInSplit = splitU256(amountInWei);
+            const minBtcOutSplit = splitU256(minBtcOutWei);
+
+            // Hash BTC address to fit in felt252 (31 bytes)
+            const hashBuffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(btcAddress));
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+            const btcAddressFelt = '0x' + hashHex.substring(0, 62);
+
+            // Create the bridge transaction call for ArgentX
+            const bridgeCall = {
+              contractAddress: BRIDGE_CONTRACT_ADDRESS,
+              entrypoint: 'bridge_token_to_btc',
+              calldata: [
+                tokenIn, // token_in
+                amountInSplit.low, // amount_in low (u256)
+                amountInSplit.high, // amount_in high (u256)
+                btcAddressFelt, // btc_address (felt252)
+                minBtcOutSplit.low, // min_btc_out low (u256)
+                minBtcOutSplit.high // min_btc_out high (u256)
+              ]
+            };
+
+            console.log(`🔄 Executing bridge_token_to_btc via ArgentX: ${amount} tokens to BTC`);
+
+            // Execute bridge transaction
+            const tx = await account.execute(bridgeCall);
+
+            console.log('✅ ArgentX wallet approved and transaction sent:', tx);
+
+            return {
+              approved: true,
+              tx_hash: tx.transaction_hash,
+              wallet_type: wallet.type,
+              amount,
+              from_address: wallet.address,
+              timestamp: Date.now()
+            };
+          } catch (argentError) {
+            throw new StarknetWalletException(
+              `ArgentX wallet operation failed: ${argentError instanceof Error ? argentError.message : 'Unknown error'}`,
+              wallet.type,
+              argentError instanceof Error ? argentError : undefined
+            );
           }
-
-          // Get account
-          const account = argentX.account;
-          if (!account) {
-            throw new Error('ArgentX account not available');
-          }
-
-          // Convert addresses and amounts
-          const amountInWei = BigInt(Math.floor(parseFloat(amount) * Math.pow(10, 18)));
-          const minBtcOutWei = BigInt(Math.floor(parseFloat(minBtcOut) * Math.pow(10, 18)));
-          const amountInSplit = splitU256(amountInWei);
-          const minBtcOutSplit = splitU256(minBtcOutWei);
-
-          // Hash BTC address to fit in felt252 (31 bytes)
-          const hashBuffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(btcAddress));
-          const hashArray = Array.from(new Uint8Array(hashBuffer));
-          const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-          const btcAddressFelt = '0x' + hashHex.substring(0, 62);
-
-          // Create the bridge transaction call for ArgentX
-          const bridgeCall = {
-            contractAddress: BRIDGE_CONTRACT_ADDRESS,
-            entrypoint: 'bridge_token_to_btc',
-            calldata: [
-              tokenIn, // token_in
-              amountInSplit.low, // amount_in low (u256)
-              amountInSplit.high, // amount_in high (u256)
-              btcAddressFelt, // btc_address (felt252)
-              minBtcOutSplit.low, // min_btc_out low (u256)
-              minBtcOutSplit.high // min_btc_out high (u256)
-            ]
-          };
-
-          console.log(`🔄 Executing bridge_token_to_btc via ArgentX: ${amount} tokens to BTC`);
-
-          // Execute bridge transaction
-          const tx = await account.execute(bridgeCall);
-
-          console.log('✅ ArgentX wallet approved and transaction sent:', tx);
-
-          return {
-            approved: true,
-            tx_hash: tx.transaction_hash,
-            wallet_type: wallet.type,
-            amount,
-            from_address: wallet.address,
-            timestamp: Date.now()
-          };
         } else {
-          throw new Error('ArgentX wallet not available. Please install ArgentX wallet extension.');
+          throw new StarknetWalletException('ArgentX wallet not available. Please install ArgentX wallet extension.', wallet.type);
         }
       }
 
@@ -1780,63 +1985,71 @@ async function triggerStarknetWalletTransaction(wallet: { type: string; address:
         if (typeof window !== 'undefined' && (window as any).starknet_braavos) {
           const braavos = (window as any).starknet_braavos;
 
-          console.log('🔄 Triggering Braavos wallet for token transfer...');
+          try {
+            console.log('🔄 Triggering Braavos wallet for token transfer...');
 
-          // Ensure wallet is connected
-          if (!braavos.isConnected) {
-            console.log('🔄 Braavos not connected, requesting connection...');
-            await braavos.enable();
+            // Ensure wallet is connected
+            if (!braavos.isConnected) {
+              console.log('🔄 Braavos not connected, requesting connection...');
+              await braavos.enable();
+            }
+
+            // Get account
+            const account = braavos.account;
+            if (!account) {
+              throw new StarknetWalletException('Braavos account not available', wallet.type);
+            }
+
+            // Convert addresses and amounts
+            const amountInWei = BigInt(Math.floor(parseFloat(amount) * Math.pow(10, 18)));
+            const minBtcOutWei = BigInt(Math.floor(parseFloat(minBtcOut) * Math.pow(10, 18)));
+            const amountInSplit = splitU256(amountInWei);
+            const minBtcOutSplit = splitU256(minBtcOutWei);
+
+            // Hash BTC address to fit in felt252 (31 bytes)
+            const hashBuffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(btcAddress));
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+            const btcAddressFelt = '0x' + hashHex.substring(0, 62);
+
+            // Create the bridge transaction call for Braavos
+            const bridgeCall = {
+              contractAddress: BRIDGE_CONTRACT_ADDRESS,
+              entrypoint: 'bridge_token_to_btc',
+              calldata: [
+                tokenIn, // token_in
+                amountInSplit.low, // amount_in low (u256)
+                amountInSplit.high, // amount_in high (u256)
+                btcAddressFelt, // btc_address (felt252)
+                minBtcOutSplit.low, // min_btc_out low (u256)
+                minBtcOutSplit.high // min_btc_out high (u256)
+              ]
+            };
+
+            console.log(`🔄 Executing bridge_token_to_btc via Braavos: ${amount} tokens to BTC`);
+
+            // Execute bridge transaction
+            const tx = await account.execute(bridgeCall);
+
+            console.log('✅ Braavos wallet approved and transaction sent:', tx);
+
+            return {
+              approved: true,
+              tx_hash: tx.transaction_hash,
+              wallet_type: wallet.type,
+              amount,
+              from_address: wallet.address,
+              timestamp: Date.now()
+            };
+          } catch (braavosError) {
+            throw new StarknetWalletException(
+              `Braavos wallet operation failed: ${braavosError instanceof Error ? braavosError.message : 'Unknown error'}`,
+              wallet.type,
+              braavosError instanceof Error ? braavosError : undefined
+            );
           }
-
-          // Get account
-          const account = braavos.account;
-          if (!account) {
-            throw new Error('Braavos account not available');
-          }
-
-          // Convert addresses and amounts
-          const amountInWei = BigInt(Math.floor(parseFloat(amount) * Math.pow(10, 18)));
-          const minBtcOutWei = BigInt(Math.floor(parseFloat(minBtcOut) * Math.pow(10, 18)));
-          const amountInSplit = splitU256(amountInWei);
-          const minBtcOutSplit = splitU256(minBtcOutWei);
-
-          // Hash BTC address to fit in felt252 (31 bytes)
-          const hashBuffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(btcAddress));
-          const hashArray = Array.from(new Uint8Array(hashBuffer));
-          const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-          const btcAddressFelt = '0x' + hashHex.substring(0, 62);
-
-          // Create the bridge transaction call for Braavos
-          const bridgeCall = {
-            contractAddress: BRIDGE_CONTRACT_ADDRESS,
-            entrypoint: 'bridge_token_to_btc',
-            calldata: [
-              tokenIn, // token_in
-              amountInSplit.low, // amount_in low (u256)
-              amountInSplit.high, // amount_in high (u256)
-              btcAddressFelt, // btc_address (felt252)
-              minBtcOutSplit.low, // min_btc_out low (u256)
-              minBtcOutSplit.high // min_btc_out high (u256)
-            ]
-          };
-
-          console.log(`🔄 Executing bridge_token_to_btc via Braavos: ${amount} tokens to BTC`);
-
-          // Execute bridge transaction
-          const tx = await account.execute(bridgeCall);
-
-          console.log('✅ Braavos wallet approved and transaction sent:', tx);
-
-          return {
-            approved: true,
-            tx_hash: tx.transaction_hash,
-            wallet_type: wallet.type,
-            amount,
-            from_address: wallet.address,
-            timestamp: Date.now()
-          };
         } else {
-          throw new Error('Braavos wallet not available. Please install Braavos wallet extension.');
+          throw new StarknetWalletException('Braavos wallet not available. Please install Braavos wallet extension.', wallet.type);
         }
       }
 
@@ -1844,37 +2057,45 @@ async function triggerStarknetWalletTransaction(wallet: { type: string; address:
         if (typeof window !== 'undefined' && window.ethereum && window.ethereum.isMetaMask) {
           const metamask = window.ethereum;
 
-          console.log('🔄 Triggering MetaMask wallet popup for Starknet token burning...');
+          try {
+            console.log('🔄 Triggering MetaMask wallet popup for Starknet token burning...');
 
-          // Request account access
-          const accounts = await metamask.request({ method: 'eth_requestAccounts' });
-          if (!accounts || accounts.length === 0) {
-            throw new Error('MetaMask account access denied');
+            // Request account access
+            const accounts = await metamask.request({ method: 'eth_requestAccounts' });
+            if (!accounts || accounts.length === 0) {
+              throw new StarknetWalletException('MetaMask account access denied', wallet.type);
+            }
+
+            // For MetaMask with Starknet support, we'd need to use Starknet-specific methods
+            // This is a simplified implementation - in reality, MetaMask Starknet support might vary
+            console.warn('⚠️ MetaMask Starknet support may be limited. Using fallback confirmation.');
+
+            // Fallback: show confirmation dialog
+            const expectedReceive = (parseFloat(amount) * 0.998).toFixed(6);
+            const bridgeFee = (parseFloat(amount) * 0.002).toFixed(6);
+            const approved = confirm(`🔄 ${wallet.type.toUpperCase()} WALLET APPROVAL\n\nBridge ${amount} STRK to Bitcoin\nReceive: ${expectedReceive} BTC\nTo: ${btcAddress}\nBridge Fee: ${bridgeFee} STRK\n\nFrom: ${wallet.address}\n\nClick OK to approve, Cancel to reject.`);
+
+            if (!approved) {
+              throw new StarknetWalletException('Transaction cancelled by user', wallet.type);
+            }
+
+            return {
+              approved: true,
+              tx_hash: `starknet_${Date.now()}`,
+              wallet_type: wallet.type,
+              amount,
+              from_address: wallet.address,
+              timestamp: Date.now()
+            };
+          } catch (metamaskError) {
+            throw new StarknetWalletException(
+              `MetaMask wallet operation failed: ${metamaskError instanceof Error ? metamaskError.message : 'Unknown error'}`,
+              wallet.type,
+              metamaskError instanceof Error ? metamaskError : undefined
+            );
           }
-
-          // For MetaMask with Starknet support, we'd need to use Starknet-specific methods
-          // This is a simplified implementation - in reality, MetaMask Starknet support might vary
-          console.warn('⚠️ MetaMask Starknet support may be limited. Using fallback confirmation.');
-
-          // Fallback: show confirmation dialog
-          const expectedReceive = (parseFloat(amount) * 0.998).toFixed(6);
-          const bridgeFee = (parseFloat(amount) * 0.002).toFixed(6);
-          const approved = confirm(`🔄 ${wallet.type.toUpperCase()} WALLET APPROVAL\n\nBridge ${amount} STRK to Bitcoin\nReceive: ${expectedReceive} BTC\nTo: ${btcAddress}\nBridge Fee: ${bridgeFee} STRK\n\nFrom: ${wallet.address}\n\nClick OK to approve, Cancel to reject.`);
-
-          if (!approved) {
-            throw new Error('Transaction cancelled by user');
-          }
-
-          return {
-            approved: true,
-            tx_hash: `starknet_${Date.now()}`,
-            wallet_type: wallet.type,
-            amount,
-            from_address: wallet.address,
-            timestamp: Date.now()
-          };
         } else {
-          throw new Error('MetaMask wallet not available. Please install MetaMask wallet extension.');
+          throw new StarknetWalletException('MetaMask wallet not available. Please install MetaMask wallet extension.', wallet.type);
         }
       }
 
@@ -1883,49 +2104,57 @@ async function triggerStarknetWalletTransaction(wallet: { type: string; address:
         if (typeof window !== 'undefined' && (window as any).starknet) {
           const genericProvider = (window as any).starknet;
 
-          console.log(`🔄 Attempting generic Starknet wallet transaction for ${wallet.type}`);
+          try {
+            console.log(`🔄 Attempting generic Starknet wallet transaction for ${wallet.type}`);
 
-          // Ensure connected
-          if (!genericProvider.isConnected) {
-            await genericProvider.enable();
+            // Ensure connected
+            if (!genericProvider.isConnected) {
+              await genericProvider.enable();
+            }
+
+            const account = genericProvider.account;
+            if (!account) {
+              throw new StarknetWalletException('Generic Starknet account not available', wallet.type);
+            }
+
+            // Convert addresses and amounts
+            const amountInWei = BigInt(Math.floor(parseFloat(amount) * Math.pow(10, 18)));
+            const minBtcOutWei = BigInt(Math.floor(parseFloat(minBtcOut) * Math.pow(10, 18)));
+            const amountInSplit = splitU256(amountInWei);
+            const minBtcOutSplit = splitU256(minBtcOutWei);
+            const btcAddressFelt = '0x' + Buffer.from(btcAddress, 'utf8').toString('hex').padEnd(64, '0'); // Convert to felt252
+
+            // Create the bridge transaction call
+            const call = {
+              contractAddress: BRIDGE_CONTRACT_ADDRESS,
+              entrypoint: 'bridge_token_to_btc',
+              calldata: [
+                tokenIn, // token_in
+                amountInSplit.low, // amount_in low (u256)
+                amountInSplit.high, // amount_in high (u256)
+                btcAddressFelt, // btc_address (felt252)
+                minBtcOutSplit.low, // min_btc_out low (u256)
+                minBtcOutSplit.high // min_btc_out high (u256)
+              ]
+            };
+
+            const tx = await account.execute(call);
+
+            return {
+              approved: true,
+              tx_hash: tx.transaction_hash,
+              wallet_type: wallet.type,
+              amount,
+              from_address: wallet.address,
+              timestamp: Date.now()
+            };
+          } catch (genericError) {
+            throw new StarknetWalletException(
+              `Generic Starknet wallet transaction failed: ${genericError instanceof Error ? genericError.message : 'Unknown error'}`,
+              wallet.type,
+              genericError instanceof Error ? genericError : undefined
+            );
           }
-
-          const account = genericProvider.account;
-          if (!account) {
-            throw new Error('Generic Starknet account not available');
-          }
-
-          // Convert addresses and amounts
-          const amountInWei = BigInt(Math.floor(parseFloat(amount) * Math.pow(10, 18)));
-          const minBtcOutWei = BigInt(Math.floor(parseFloat(minBtcOut) * Math.pow(10, 18)));
-          const amountInSplit = splitU256(amountInWei);
-          const minBtcOutSplit = splitU256(minBtcOutWei);
-          const btcAddressFelt = '0x' + Buffer.from(btcAddress, 'utf8').toString('hex').padEnd(64, '0'); // Convert to felt252
-
-          // Create the bridge transaction call
-          const call = {
-            contractAddress: BRIDGE_CONTRACT_ADDRESS,
-            entrypoint: 'bridge_token_to_btc',
-            calldata: [
-              tokenIn, // token_in
-              amountInSplit.low, // amount_in low (u256)
-              amountInSplit.high, // amount_in high (u256)
-              btcAddressFelt, // btc_address (felt252)
-              minBtcOutSplit.low, // min_btc_out low (u256)
-              minBtcOutSplit.high // min_btc_out high (u256)
-            ]
-          };
-
-          const tx = await account.execute(call);
-
-          return {
-            approved: true,
-            tx_hash: tx.transaction_hash,
-            wallet_type: wallet.type,
-            amount,
-            from_address: wallet.address,
-            timestamp: Date.now()
-          };
         }
 
         // Fallback - show confirmation dialog
@@ -1935,7 +2164,7 @@ async function triggerStarknetWalletTransaction(wallet: { type: string; address:
         const approved = confirm(`🔄 ${wallet.type.toUpperCase()} WALLET APPROVAL\n\nBridge ${amount} STRK to Bitcoin\nReceive: ${expectedReceive} BTC\nTo: ${btcAddress}\nBridge Fee: ${bridgeFee} STRK\n\nFrom: ${wallet.address}\n\nClick OK to approve, Cancel to reject.`);
 
         if (!approved) {
-          throw new Error('Transaction cancelled by user');
+          throw new StarknetWalletException('Transaction cancelled by user', wallet.type);
         }
 
         return {
@@ -1950,10 +2179,20 @@ async function triggerStarknetWalletTransaction(wallet: { type: string; address:
     }
   } catch (error: any) {
     console.error(`❌ Starknet wallet transaction failed for ${wallet.type}:`, error);
-    if (error.message?.includes('cancel') || error.message?.includes('reject') || error.message?.includes('denied')) {
-      return { approved: false, tx_hash: '' };
+    
+    if (error instanceof StarknetWalletException) {
+      // Check if this is a user cancel (empty tx_hash indicates user abort)
+      if (error.message?.includes('cancelled') || error.message?.includes('denied')) {
+        return { approved: false, tx_hash: '' };
+      }
+      throw error;
     }
-    throw new Error(`Wallet transaction failed: ${error.message}`);
+    
+    throw new StarknetWalletException(
+      `Starknet wallet transaction failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      wallet.type,
+      error instanceof Error ? error : undefined
+    );
   }
 }
 

@@ -211,6 +211,285 @@ export class Bridge {
         const ptr = this.__destroy_into_raw();
         wasm.__wbg_bridge_free(ptr, 0);
     }
+    /**
+     * @param {string} token
+     * @returns {boolean}
+     */
+    is_wrapped(token) {
+        const ptr0 = passStringToWasm0(token, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.bridge_is_wrapped(this.__wbg_ptr, ptr0, len0);
+        return ret !== 0;
+    }
+    /**
+     * @param {string} caller
+     */
+    pause_bridge(caller) {
+        const ptr0 = passStringToWasm0(caller, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.bridge_pause_bridge(this.__wbg_ptr, ptr0, len0);
+        if (ret[1]) {
+            throw takeFromExternrefTable0(ret[0]);
+        }
+    }
+    /**
+     * @param {string} caller
+     */
+    unpause_bridge(caller) {
+        const ptr0 = passStringToWasm0(caller, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.bridge_unpause_bridge(this.__wbg_ptr, ptr0, len0);
+        if (ret[1]) {
+            throw takeFromExternrefTable0(ret[0]);
+        }
+    }
+    /**
+     * @returns {boolean}
+     */
+    is_bridge_paused() {
+        const ret = wasm.bridge_is_bridge_paused(this.__wbg_ptr);
+        return ret !== 0;
+    }
+    /**
+     * @param {string} caller
+     * @param {string} token
+     * @param {boolean} is_wrapped
+     */
+    set_wrapped_token(caller, token, is_wrapped) {
+        const ptr0 = passStringToWasm0(caller, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(token, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.bridge_set_wrapped_token(this.__wbg_ptr, ptr0, len0, ptr1, len1, is_wrapped);
+        if (ret[1]) {
+            throw takeFromExternrefTable0(ret[0]);
+        }
+    }
+    /**
+     * @param {string} caller
+     * @param {bigint} amount
+     * @param {string} btc_address
+     * @param {bigint} min_amount_out
+     * @param {string} to
+     * @returns {bigint}
+     */
+    bridge_btc_to_token(caller, amount, btc_address, min_amount_out, to) {
+        const ptr0 = passStringToWasm0(caller, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(btc_address, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ptr2 = passStringToWasm0(to, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len2 = WASM_VECTOR_LEN;
+        const ret = wasm.bridge_bridge_btc_to_token(this.__wbg_ptr, ptr0, len0, amount, amount >> BigInt(64), ptr1, len1, min_amount_out, min_amount_out >> BigInt(64), ptr2, len2);
+        if (ret[3]) {
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        return (BigInt.asUintN(64, ret[0]) | (BigInt.asUintN(64, ret[1]) << BigInt(64)));
+    }
+    /**
+     * @param {string} caller
+     * @param {string} token_in
+     * @param {bigint} amount_in
+     * @param {BigUint64Array} btc_address
+     * @param {bigint} min_btc_out
+     * @returns {bigint}
+     */
+    bridge_token_to_btc(caller, token_in, amount_in, btc_address, min_btc_out) {
+        const ptr0 = passStringToWasm0(caller, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(token_in, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ptr2 = passArray64ToWasm0(btc_address, wasm.__wbindgen_malloc);
+        const len2 = WASM_VECTOR_LEN;
+        const ret = wasm.bridge_bridge_token_to_btc(this.__wbg_ptr, ptr0, len0, ptr1, len1, amount_in, amount_in >> BigInt(64), ptr2, len2, min_btc_out, min_btc_out >> BigInt(64));
+        if (ret[3]) {
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        return (BigInt.asUintN(64, ret[0]) | (BigInt.asUintN(64, ret[1]) << BigInt(64)));
+    }
+    /**
+     * @returns {string}
+     */
+    get_emergency_admin() {
+        let deferred1_0;
+        let deferred1_1;
+        try {
+            const ret = wasm.bridge_get_emergency_admin(this.__wbg_ptr);
+            deferred1_0 = ret[0];
+            deferred1_1 = ret[1];
+            return getStringFromWasm0(ret[0], ret[1]);
+        } finally {
+            wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
+        }
+    }
+    /**
+     * @returns {string}
+     */
+    get_pause_timestamp() {
+        let deferred1_0;
+        let deferred1_1;
+        try {
+            const ret = wasm.bridge_get_pause_timestamp(this.__wbg_ptr);
+            deferred1_0 = ret[0];
+            deferred1_1 = ret[1];
+            return getStringFromWasm0(ret[0], ret[1]);
+        } finally {
+            wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
+        }
+    }
+    /**
+     * @returns {boolean}
+     */
+    is_emergency_paused() {
+        const ret = wasm.bridge_is_emergency_paused(this.__wbg_ptr);
+        return ret !== 0;
+    }
+    /**
+     * @param {string} caller
+     * @param {string} token
+     * @param {string} to
+     * @param {bigint} amount
+     * @param {bigint} src_chain_id
+     * @param {bigint} from_sender
+     * @param {bigint} data
+     */
+    receive_cross_chain(caller, token, to, amount, src_chain_id, from_sender, data) {
+        const ptr0 = passStringToWasm0(caller, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(token, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ptr2 = passStringToWasm0(to, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len2 = WASM_VECTOR_LEN;
+        const ret = wasm.bridge_receive_cross_chain(this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2, amount, amount >> BigInt(64), src_chain_id, from_sender, data);
+        if (ret[1]) {
+            throw takeFromExternrefTable0(ret[0]);
+        }
+    }
+    /**
+     * @param {string} caller
+     * @param {string} new_emergency_admin
+     */
+    set_emergency_admin(caller, new_emergency_admin) {
+        const ptr0 = passStringToWasm0(caller, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(new_emergency_admin, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.bridge_set_emergency_admin(this.__wbg_ptr, ptr0, len0, ptr1, len1);
+        if (ret[1]) {
+            throw takeFromExternrefTable0(ret[0]);
+        }
+    }
+    /**
+     * @param {string} caller
+     * @param {string} router
+     * @param {string} token_in
+     * @param {string} token_out
+     * @param {bigint} amount_in
+     * @param {bigint} min_amount_out
+     * @param {string} to
+     * @returns {bigint}
+     */
+    swap_token_to_token(caller, router, token_in, token_out, amount_in, min_amount_out, to) {
+        const ptr0 = passStringToWasm0(caller, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(router, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ptr2 = passStringToWasm0(token_in, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len2 = WASM_VECTOR_LEN;
+        const ptr3 = passStringToWasm0(token_out, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len3 = WASM_VECTOR_LEN;
+        const ptr4 = passStringToWasm0(to, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len4 = WASM_VECTOR_LEN;
+        const ret = wasm.bridge_swap_token_to_token(this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2, ptr3, len3, amount_in, amount_in >> BigInt(64), min_amount_out, min_amount_out >> BigInt(64), ptr4, len4);
+        if (ret[3]) {
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        return (BigInt.asUintN(64, ret[0]) | (BigInt.asUintN(64, ret[1]) << BigInt(64)));
+    }
+    /**
+     * @returns {bigint}
+     */
+    get_daily_bridge_limit() {
+        const ret = wasm.bridge_get_daily_bridge_limit(this.__wbg_ptr);
+        return (BigInt.asUintN(64, ret[0]) | (BigInt.asUintN(64, ret[1]) << BigInt(64)));
+    }
+    /**
+     * @returns {bigint}
+     */
+    get_daily_bridge_usage() {
+        const ret = wasm.bridge_get_daily_bridge_usage(this.__wbg_ptr);
+        return (BigInt.asUintN(64, ret[0]) | (BigInt.asUintN(64, ret[1]) << BigInt(64)));
+    }
+    /**
+     * @param {string} caller
+     * @param {bigint} limit
+     */
+    set_daily_bridge_limit(caller, limit) {
+        const ptr0 = passStringToWasm0(caller, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.bridge_set_daily_bridge_limit(this.__wbg_ptr, ptr0, len0, limit, limit >> BigInt(64));
+        if (ret[1]) {
+            throw takeFromExternrefTable0(ret[0]);
+        }
+    }
+    /**
+     * @param {string} caller
+     * @param {bigint} amount
+     * @param {string} btc_address
+     * @param {string} starknet_recipient
+     * @returns {bigint}
+     */
+    initiate_bitcoin_deposit(caller, amount, btc_address, starknet_recipient) {
+        const ptr0 = passStringToWasm0(caller, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(btc_address, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ptr2 = passStringToWasm0(starknet_recipient, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len2 = WASM_VECTOR_LEN;
+        const ret = wasm.bridge_initiate_bitcoin_deposit(this.__wbg_ptr, ptr0, len0, amount, amount >> BigInt(64), ptr1, len1, ptr2, len2);
+        if (ret[3]) {
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        return (BigInt.asUintN(64, ret[0]) | (BigInt.asUintN(64, ret[1]) << BigInt(64)));
+    }
+    /**
+     * @param {string} user
+     * @returns {number}
+     */
+    get_user_transaction_count(user) {
+        const ptr0 = passStringToWasm0(user, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.bridge_get_user_transaction_count(this.__wbg_ptr, ptr0, len0);
+        return ret >>> 0;
+    }
+    /**
+     * @param {string} caller
+     * @param {bigint} amount
+     * @param {BigUint64Array} btc_address
+     * @returns {bigint}
+     */
+    initiate_bitcoin_withdrawal(caller, amount, btc_address) {
+        const ptr0 = passStringToWasm0(caller, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passArray64ToWasm0(btc_address, wasm.__wbindgen_malloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.bridge_initiate_bitcoin_withdrawal(this.__wbg_ptr, ptr0, len0, amount, amount >> BigInt(64), ptr1, len1);
+        if (ret[3]) {
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        return (BigInt.asUintN(64, ret[0]) | (BigInt.asUintN(64, ret[1]) << BigInt(64)));
+    }
+    /**
+     * @param {string} user
+     * @param {number} count
+     * @returns {any}
+     */
+    get_user_recent_transactions(user, count) {
+        const ptr0 = passStringToWasm0(user, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.bridge_get_user_recent_transactions(this.__wbg_ptr, ptr0, len0, count);
+        return ret;
+    }
     constructor() {
         const ret = wasm.bridge_new();
         this.__wbg_ptr = ret >>> 0;
@@ -267,57 +546,49 @@ export class Bridge {
     }
     /**
      * @param {string} caller
-     * @param {string} new_admin
-     */
-    set_admin(caller, new_admin) {
-        const ptr0 = passStringToWasm0(caller, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(new_admin, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len1 = WASM_VECTOR_LEN;
-        const ret = wasm.bridge_set_admin(this.__wbg_ptr, ptr0, len0, ptr1, len1);
-        if (ret[1]) {
-            throw takeFromExternrefTable0(ret[0]);
-        }
-    }
-    /**
-     * @returns {string}
-     */
-    get_admin() {
-        let deferred1_0;
-        let deferred1_1;
-        try {
-            const ret = wasm.bridge_get_admin(this.__wbg_ptr);
-            deferred1_0 = ret[0];
-            deferred1_1 = ret[1];
-            return getStringFromWasm0(ret[0], ret[1]);
-        } finally {
-            wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
-        }
-    }
-    /**
-     * @param {string} caller
      * @param {string} token
-     * @param {boolean} is_wrapped
+     * @param {bigint} amount
+     * @param {bigint} dst_chain_id
+     * @param {bigint} recipient
      */
-    set_wrapped_token(caller, token, is_wrapped) {
+    lock(caller, token, amount, dst_chain_id, recipient) {
         const ptr0 = passStringToWasm0(caller, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
         const ptr1 = passStringToWasm0(token, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len1 = WASM_VECTOR_LEN;
-        const ret = wasm.bridge_set_wrapped_token(this.__wbg_ptr, ptr0, len0, ptr1, len1, is_wrapped);
+        const ret = wasm.bridge_lock(this.__wbg_ptr, ptr0, len0, ptr1, len1, amount, amount >> BigInt(64), dst_chain_id, recipient);
         if (ret[1]) {
             throw takeFromExternrefTable0(ret[0]);
         }
     }
     /**
-     * @param {string} token
-     * @returns {boolean}
+     * @param {string} _caller
+     * @param {bigint} dst_chain_id
+     * @param {bigint} to_recipient
+     * @param {bigint} data
      */
-    is_wrapped(token) {
-        const ptr0 = passStringToWasm0(token, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    send(_caller, dst_chain_id, to_recipient, data) {
+        const ptr0 = passStringToWasm0(_caller, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.bridge_is_wrapped(this.__wbg_ptr, ptr0, len0);
-        return ret !== 0;
+        wasm.bridge_send(this.__wbg_ptr, ptr0, len0, dst_chain_id, to_recipient, data);
+    }
+    /**
+     * @param {string} caller
+     * @param {string} token
+     * @param {string} to
+     * @param {bigint} amount
+     */
+    unlock(caller, token, to, amount) {
+        const ptr0 = passStringToWasm0(caller, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(token, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ptr2 = passStringToWasm0(to, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len2 = WASM_VECTOR_LEN;
+        const ret = wasm.bridge_unlock(this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2, amount, amount >> BigInt(64));
+        if (ret[1]) {
+            throw takeFromExternrefTable0(ret[0]);
+        }
     }
     /**
      * @param {string} caller
@@ -355,236 +626,13 @@ export class Bridge {
         }
     }
     /**
-     * @param {string} caller
-     * @param {string} token
-     * @param {bigint} amount
-     * @param {bigint} dst_chain_id
-     * @param {bigint} recipient
-     */
-    lock(caller, token, amount, dst_chain_id, recipient) {
-        const ptr0 = passStringToWasm0(caller, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(token, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len1 = WASM_VECTOR_LEN;
-        const ret = wasm.bridge_lock(this.__wbg_ptr, ptr0, len0, ptr1, len1, amount, amount >> BigInt(64), dst_chain_id, recipient);
-        if (ret[1]) {
-            throw takeFromExternrefTable0(ret[0]);
-        }
-    }
-    /**
-     * @param {string} caller
-     * @param {string} token
-     * @param {string} to
-     * @param {bigint} amount
-     */
-    unlock(caller, token, to, amount) {
-        const ptr0 = passStringToWasm0(caller, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(token, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len1 = WASM_VECTOR_LEN;
-        const ptr2 = passStringToWasm0(to, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len2 = WASM_VECTOR_LEN;
-        const ret = wasm.bridge_unlock(this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2, amount, amount >> BigInt(64));
-        if (ret[1]) {
-            throw takeFromExternrefTable0(ret[0]);
-        }
-    }
-    /**
-     * @param {string} _caller
-     * @param {bigint} dst_chain_id
-     * @param {bigint} to_recipient
-     * @param {bigint} data
-     */
-    send(_caller, dst_chain_id, to_recipient, data) {
-        const ptr0 = passStringToWasm0(_caller, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        wasm.bridge_send(this.__wbg_ptr, ptr0, len0, dst_chain_id, to_recipient, data);
-    }
-    /**
-     * @param {string} caller
-     * @param {string} token
-     * @param {string} to
-     * @param {bigint} amount
-     * @param {bigint} src_chain_id
-     * @param {bigint} from_sender
-     * @param {bigint} data
-     */
-    receive_cross_chain(caller, token, to, amount, src_chain_id, from_sender, data) {
-        const ptr0 = passStringToWasm0(caller, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(token, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len1 = WASM_VECTOR_LEN;
-        const ptr2 = passStringToWasm0(to, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len2 = WASM_VECTOR_LEN;
-        const ret = wasm.bridge_receive_cross_chain(this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2, amount, amount >> BigInt(64), src_chain_id, from_sender, data);
-        if (ret[1]) {
-            throw takeFromExternrefTable0(ret[0]);
-        }
-    }
-    /**
-     * @param {string} caller
-     * @param {bigint} amount
-     * @param {string} btc_address
-     * @param {bigint} min_amount_out
-     * @param {string} to
-     * @returns {bigint}
-     */
-    bridge_btc_to_token(caller, amount, btc_address, min_amount_out, to) {
-        const ptr0 = passStringToWasm0(caller, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(btc_address, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len1 = WASM_VECTOR_LEN;
-        const ptr2 = passStringToWasm0(to, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len2 = WASM_VECTOR_LEN;
-        const ret = wasm.bridge_bridge_btc_to_token(this.__wbg_ptr, ptr0, len0, amount, amount >> BigInt(64), ptr1, len1, min_amount_out, min_amount_out >> BigInt(64), ptr2, len2);
-        if (ret[3]) {
-            throw takeFromExternrefTable0(ret[2]);
-        }
-        return (BigInt.asUintN(64, ret[0]) | (BigInt.asUintN(64, ret[1]) << BigInt(64)));
-    }
-    /**
-     * @param {string} caller
-     * @param {string} token_in
-     * @param {bigint} amount_in
-     * @param {BigUint64Array} btc_address
-     * @param {bigint} min_btc_out
-     * @returns {bigint}
-     */
-    bridge_token_to_btc(caller, token_in, amount_in, btc_address, min_btc_out) {
-        const ptr0 = passStringToWasm0(caller, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(token_in, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len1 = WASM_VECTOR_LEN;
-        const ptr2 = passArray64ToWasm0(btc_address, wasm.__wbindgen_malloc);
-        const len2 = WASM_VECTOR_LEN;
-        const ret = wasm.bridge_bridge_token_to_btc(this.__wbg_ptr, ptr0, len0, ptr1, len1, amount_in, amount_in >> BigInt(64), ptr2, len2, min_btc_out, min_btc_out >> BigInt(64));
-        if (ret[3]) {
-            throw takeFromExternrefTable0(ret[2]);
-        }
-        return (BigInt.asUintN(64, ret[0]) | (BigInt.asUintN(64, ret[1]) << BigInt(64)));
-    }
-    /**
-     * @param {string} caller
-     * @param {string} router
-     * @param {string} token_in
-     * @param {string} token_out
-     * @param {bigint} amount_in
-     * @param {bigint} min_amount_out
-     * @param {string} to
-     * @returns {bigint}
-     */
-    swap_token_to_token(caller, router, token_in, token_out, amount_in, min_amount_out, to) {
-        const ptr0 = passStringToWasm0(caller, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(router, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len1 = WASM_VECTOR_LEN;
-        const ptr2 = passStringToWasm0(token_in, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len2 = WASM_VECTOR_LEN;
-        const ptr3 = passStringToWasm0(token_out, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len3 = WASM_VECTOR_LEN;
-        const ptr4 = passStringToWasm0(to, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len4 = WASM_VECTOR_LEN;
-        const ret = wasm.bridge_swap_token_to_token(this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2, ptr3, len3, amount_in, amount_in >> BigInt(64), min_amount_out, min_amount_out >> BigInt(64), ptr4, len4);
-        if (ret[3]) {
-            throw takeFromExternrefTable0(ret[2]);
-        }
-        return (BigInt.asUintN(64, ret[0]) | (BigInt.asUintN(64, ret[1]) << BigInt(64)));
-    }
-    /**
-     * @param {string} caller
-     * @param {bigint} amount
-     * @param {string} btc_address
-     * @param {string} starknet_recipient
-     * @returns {bigint}
-     */
-    initiate_bitcoin_deposit(caller, amount, btc_address, starknet_recipient) {
-        const ptr0 = passStringToWasm0(caller, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(btc_address, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len1 = WASM_VECTOR_LEN;
-        const ptr2 = passStringToWasm0(starknet_recipient, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len2 = WASM_VECTOR_LEN;
-        const ret = wasm.bridge_initiate_bitcoin_deposit(this.__wbg_ptr, ptr0, len0, amount, amount >> BigInt(64), ptr1, len1, ptr2, len2);
-        if (ret[3]) {
-            throw takeFromExternrefTable0(ret[2]);
-        }
-        return (BigInt.asUintN(64, ret[0]) | (BigInt.asUintN(64, ret[1]) << BigInt(64)));
-    }
-    /**
-     * @param {string} caller
-     * @param {bigint} amount
-     * @param {BigUint64Array} btc_address
-     * @returns {bigint}
-     */
-    initiate_bitcoin_withdrawal(caller, amount, btc_address) {
-        const ptr0 = passStringToWasm0(caller, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passArray64ToWasm0(btc_address, wasm.__wbindgen_malloc);
-        const len1 = WASM_VECTOR_LEN;
-        const ret = wasm.bridge_initiate_bitcoin_withdrawal(this.__wbg_ptr, ptr0, len0, amount, amount >> BigInt(64), ptr1, len1);
-        if (ret[3]) {
-            throw takeFromExternrefTable0(ret[2]);
-        }
-        return (BigInt.asUintN(64, ret[0]) | (BigInt.asUintN(64, ret[1]) << BigInt(64)));
-    }
-    /**
-     * @param {string} caller
-     */
-    pause_bridge(caller) {
-        const ptr0 = passStringToWasm0(caller, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.bridge_pause_bridge(this.__wbg_ptr, ptr0, len0);
-        if (ret[1]) {
-            throw takeFromExternrefTable0(ret[0]);
-        }
-    }
-    /**
-     * @param {string} caller
-     */
-    unpause_bridge(caller) {
-        const ptr0 = passStringToWasm0(caller, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.bridge_unpause_bridge(this.__wbg_ptr, ptr0, len0);
-        if (ret[1]) {
-            throw takeFromExternrefTable0(ret[0]);
-        }
-    }
-    /**
-     * @returns {boolean}
-     */
-    is_bridge_paused() {
-        const ret = wasm.bridge_is_bridge_paused(this.__wbg_ptr);
-        return ret !== 0;
-    }
-    /**
-     * @returns {boolean}
-     */
-    is_emergency_paused() {
-        const ret = wasm.bridge_is_emergency_paused(this.__wbg_ptr);
-        return ret !== 0;
-    }
-    /**
-     * @param {string} caller
-     * @param {string} new_emergency_admin
-     */
-    set_emergency_admin(caller, new_emergency_admin) {
-        const ptr0 = passStringToWasm0(caller, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(new_emergency_admin, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len1 = WASM_VECTOR_LEN;
-        const ret = wasm.bridge_set_emergency_admin(this.__wbg_ptr, ptr0, len0, ptr1, len1);
-        if (ret[1]) {
-            throw takeFromExternrefTable0(ret[0]);
-        }
-    }
-    /**
      * @returns {string}
      */
-    get_emergency_admin() {
+    get_admin() {
         let deferred1_0;
         let deferred1_1;
         try {
-            const ret = wasm.bridge_get_emergency_admin(this.__wbg_ptr);
+            const ret = wasm.bridge_get_admin(this.__wbg_ptr);
             deferred1_0 = ret[0];
             deferred1_1 = ret[1];
             return getStringFromWasm0(ret[0], ret[1]);
@@ -594,65 +642,17 @@ export class Bridge {
     }
     /**
      * @param {string} caller
-     * @param {bigint} limit
+     * @param {string} new_admin
      */
-    set_daily_bridge_limit(caller, limit) {
+    set_admin(caller, new_admin) {
         const ptr0 = passStringToWasm0(caller, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.bridge_set_daily_bridge_limit(this.__wbg_ptr, ptr0, len0, limit, limit >> BigInt(64));
+        const ptr1 = passStringToWasm0(new_admin, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.bridge_set_admin(this.__wbg_ptr, ptr0, len0, ptr1, len1);
         if (ret[1]) {
             throw takeFromExternrefTable0(ret[0]);
         }
-    }
-    /**
-     * @returns {bigint}
-     */
-    get_daily_bridge_limit() {
-        const ret = wasm.bridge_get_daily_bridge_limit(this.__wbg_ptr);
-        return (BigInt.asUintN(64, ret[0]) | (BigInt.asUintN(64, ret[1]) << BigInt(64)));
-    }
-    /**
-     * @returns {bigint}
-     */
-    get_daily_bridge_usage() {
-        const ret = wasm.bridge_get_daily_bridge_usage(this.__wbg_ptr);
-        return (BigInt.asUintN(64, ret[0]) | (BigInt.asUintN(64, ret[1]) << BigInt(64)));
-    }
-    /**
-     * @returns {string}
-     */
-    get_pause_timestamp() {
-        let deferred1_0;
-        let deferred1_1;
-        try {
-            const ret = wasm.bridge_get_pause_timestamp(this.__wbg_ptr);
-            deferred1_0 = ret[0];
-            deferred1_1 = ret[1];
-            return getStringFromWasm0(ret[0], ret[1]);
-        } finally {
-            wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
-        }
-    }
-    /**
-     * @param {string} user
-     * @returns {number}
-     */
-    get_user_transaction_count(user) {
-        const ptr0 = passStringToWasm0(user, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.bridge_get_user_transaction_count(this.__wbg_ptr, ptr0, len0);
-        return ret >>> 0;
-    }
-    /**
-     * @param {string} user
-     * @param {number} count
-     * @returns {any}
-     */
-    get_user_recent_transactions(user, count) {
-        const ptr0 = passStringToWasm0(user, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.bridge_get_user_recent_transactions(this.__wbg_ptr, ptr0, len0, count);
-        return ret;
     }
 }
 if (Symbol.dispose) Bridge.prototype[Symbol.dispose] = Bridge.prototype.free;
