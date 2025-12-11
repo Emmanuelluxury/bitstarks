@@ -48,7 +48,7 @@ export class NetworkProviderException extends ThirdPartyServiceException {
 
 // Contract addresses for real tokens on Starknet
 export const STRK_TOKEN_ADDRESS = '0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d';
-export const BTC_TOKEN_ADDRESS = '0x03fe2b97c1fd336e750087d68b9b867997fd64a2661ff3ff6d16c6502f95e7a6e8';
+export const BTC_TOKEN_ADDRESS = 'bc1qar0srrr7xfkvy5l643lydnw9re596jnsx03h76';
 // Updated to match the deployed contract from the error
 export const BRIDGE_CONTRACT_ADDRESS = '0x0565cb1e49269921c02d4e0b4ffb741750d4d8bdf11e88a8d87fc622103929c3';
 

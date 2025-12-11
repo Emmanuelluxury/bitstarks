@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
@@ -8,7 +8,7 @@ import { useTransactions } from '../components/TransactionContext';
 import { initStarknet, getUserRecentTransactions } from '../utils/starknet';
 import './styles.css';
 
-export default function TransactionsPage() {
+function TransactionsContent() {
     const { getTransactionsByWallet } = useTransactions();
     const searchParams = useSearchParams();
     const tabParam = searchParams.get('tab');
@@ -580,5 +580,13 @@ export default function TransactionsPage() {
         </footer>
       </div>
     </div>
+  );
+}
+
+export default function TransactionsPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <TransactionsContent />
+    </Suspense>
   );
 }

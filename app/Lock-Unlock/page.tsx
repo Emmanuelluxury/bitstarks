@@ -88,7 +88,14 @@ export default function LockUnlockPage() {
     setTransactionId(`bc1q${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`);
   }, []);
 
-  const stats = [
+  interface Stat {
+    icon: string;
+    label: string;
+    value: string;
+    color: string;
+  }
+
+  const stats: Stat[] = [
     { icon: 'fas fa-bridge', label: 'Bridge Transactions', value: '24', color: 'stat-bridge' },
     { icon: 'fas fa-exchange-alt', label: 'Swap Transactions', value: '42', color: 'stat-swap' },
     { icon: 'fas fa-lock', label: 'Lock Transactions', value: '15', color: 'stat-lock' },
