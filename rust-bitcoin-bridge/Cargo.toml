@@ -13,3 +13,5 @@ wasm-bindgen = { version = "0.2", features = ["serde-serialize"] }
 chrono = { version = "0.4", features = ["serde"] }
 js-sys = "0.3"
 web-sys = "0.3"
+bitcoin = "0.30"
+hex = "0.4"

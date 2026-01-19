@@ -583,7 +583,7 @@ export default function BridgePage() {
         txResult = await bridgeBtcToToken(
           fromAmount,
           fromAddress, // btcAddress
-          '0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d', // STRK token address
+          '0x0565cb1e49269921c02d4e0b4ffb741750d4d8bdf11e88a8d87fc622103929c3', // rawBTC address (bridge contract)
           (parseFloat(fromAmount) * 0.999).toString(), // minAmountOut (after 0.1% fee)
           toAddress, // to
           bitcoinWallet

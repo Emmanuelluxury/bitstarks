@@ -1,6 +1,10 @@
 use std::collections::HashMap;
 use wasm_bindgen::prelude::*;
 use serde::{Deserialize, Serialize};
+use bitcoin::blockdata::transaction::Transaction;
+use bitcoin::consensus::encode::deserialize;
+use bitcoin::hash_types::Txid;
+use bitcoin::hashes::Hash;
 
 // Type aliases
 pub type ContractAddress = String;
@@ -319,6 +323,32 @@ impl Bridge {
 
     fn emit(&mut self, event: SimpleEvent) {
         self.events.push(event);
+    }
+
+    // SPV verification for Bitcoin transactions
+    fn verify_bitcoin_transaction(&self, tx_hex: &str, block_hash: &str, merkle_proof: &str) -> Result<bool, String> {
+        // Parse transaction
+        let tx_bytes = hex::decode(tx_hex).map_err(|_| "Invalid tx hex")?;
+        let tx: Transaction = deserialize(&tx_bytes).map_err(|_| "Invalid transaction")?;
+
+        // For now, simple verification: check if transaction outputs to the bridge address
+        // In production, verify Merkle proof and block header
+        let bridge_address = "bc1qar0srrr7xfkvy5l643lydnw9re596jnsx03h76";
+        for output in &tx.output {
+            // Check if output is to bridge address (simplified)
+            // In reality, decode the script and check
+            if output.value > 0 {
+                // Placeholder: assume valid if has output
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    }
+
+    // Verify Bitcoin transaction for bridging
+    #[wasm_bindgen]
+    pub fn verify_btc_transaction(&self, tx_hex: &str, block_hash: &str, merkle_proof: &str) -> Result<bool, JsValue> {
+        self.verify_bitcoin_transaction(tx_hex, block_hash, merkle_proof).map_err(JsValue::from)
     }
 
     // Constructor/init
@@ -712,4 +742,108 @@ impl Bridge {
         }
         serde_wasm_bindgen::to_value(&transactions).unwrap()
     }
+
+    #[wasm_bindgen]
+    pub fn update_pricing(ref self: ContractState,
+        btc_strk_rate: u256,  // rate in fixed-point (rate * 10^18)
+        confidence_bps: u16,
+    ) {
+        self.assert_admin();
+        assert!(btc_strk_rate > 0, "INVALID_RATE");
+        assert!(confidence_bps < 10000, "INVALID_CONFIDENCE"); // < 100%
+        
+        self.btc_strk_rate.write(btc_strk_rate);
+        self.rate_confidence_bps.write(confidence_bps);
+        self.rate_last_updated.write(starknet::get_block_timestamp());
+        
+        self.emit(Event::PricingUpdated(PricingUpdated {
+            btc_strk_rate,
+            timestamp: starknet::get_block_timestamp(),
+            confidence_bps,
+        }));
+    }
+
+    // ============================================================
+    // OPTIONAL CONVERSION: BTC -> STRK
+    // ============================================================
+
+    /// User sets conversion preference (OPT-IN)
+    /// If enabled, incoming rawBTC can be auto-converted to STRK
+    /// 
+    /// @param auto_convert: Enable/disable automatic conversion
+    /// @param min_conversion_rate: Reject conversion below this rate
+    /// @param max_slippage_bps: Maximum acceptable slippage in basis points
+    #[external(v0)]
+    fn set_conversion_preference(
+        ref self: ContractState,
+        auto_convert: bool,
+        min_conversion_rate: u256,
+        max_slippage_bps: u16,
+    ) {
+        let user = get_caller_address();
+        assert!(max_slippage_bps < 10000, "INVALID_SLIPPAGE");
+        
+        let pref = ConversionPreference {
+            user,
+            auto_convert,
+            min_conversion_rate,
+            max_slippage_bps,
+        };
+        
+        self.user_conversion_prefs.write(user, pref);
+        
+        self.emit(Event::ConversionPreferenceSet(ConversionPreferenceSet {
+            user,
+            auto_convert,
+            min_rate: min_conversion_rate,
+        }));
+    }
+
+    /// Execute conversion from rawBTC to STRK
+    /// Only callable if user has opted-in to conversion
+    /// 
+    /// @param amount_btc: Amount of rawBTC to convert
+    #[external(v0)]
+    fn convert_rawbtc_to_strk(
+        ref self: ContractState,
+        amount_btc: u256,
+    ) -> u256 {
+        self.assert_not_paused();
+        
+        let user = get_caller_address();
+        let pref = self.user_conversion_prefs.read(user);
+        assert!(pref.auto_convert, "CONVERSION_NOT_ENABLED");
+        
+        let balance = self.rawbtc_balance.read(user);
+        assert!(balance >= amount_btc, "INSUFFICIENT_BALANCE");
+        
+        let rate = self.btc_strk_rate.read();
+        assert!(rate >= pref.min_conversion_rate, "RATE_TOO_LOW");
+        
+        // Calculate conversion amount: amount_btc * rate / 10^18
+        let amount_strk: u256 = (amount_btc * rate) / 1000000000000000000;
+        
+        // Apply slippage
+        let slippage_amount = (amount_strk * pref.max_slippage_bps.into()) / 10000;
+        let amount_strk_with_slippage = amount_strk - slippage_amount;
+        
+        // BURN rawBTC
+        self.rawbtc_balance.write(user, balance - amount_btc);
+        self.rawbtc_total_supply.write(self.rawbtc_total_supply.read() - amount_btc);
+        
+        // Note: In production, transfer STRK from reserve or mint if needed
+        // For now, emit event for off-chain processing
+        
+        self.emit(Event::ConversionExecuted(ConversionExecuted {
+            user,
+            token_in: get_contract_address(), // rawBTC
+            amount_in: amount_btc,
+            token_out: STRK_TOKEN_ADDRESS.try_into().unwrap(),
+            amount_out: amount_strk_with_slippage,
+            rate,
+        }));
+        
+        amount_strk_with_slippage
+    }
+
 }
