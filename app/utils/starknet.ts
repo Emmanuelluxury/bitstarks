@@ -50,7 +50,7 @@ export class NetworkProviderException extends ThirdPartyServiceException {
 export const STRK_TOKEN_ADDRESS = '0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d';
 export const BTC_TOKEN_ADDRESS = 'bc1qar0srrr7xfkvy5l643lydnw9re596jnsx03h76';
 // Updated to match the deployed contract from the error
-export const BRIDGE_CONTRACT_ADDRESS = '0x0565cb1e49269921c02d4e0b4ffb741750d4d8bdf11e88a8d87fc622103929c3';
+export const BRIDGE_CONTRACT_ADDRESS = '0x033d11992f96518e13dc34d6b8ec10c2c5c9c1d220a39a274b46a58ee4fab4de';
 // rawBTC is the bridge contract itself
 export const RAW_BTC_ADDRESS = BRIDGE_CONTRACT_ADDRESS;
 
@@ -549,6 +549,234 @@ export const BRIDGE_ABI = [
       }
     ],
     "state_mutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "name",
+    "inputs": [],
+    "outputs": [
+      {
+        "type": "core::felt252"
+      }
+    ],
+    "state_mutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "symbol",
+    "inputs": [],
+    "outputs": [
+      {
+        "type": "core::felt252"
+      }
+    ],
+    "state_mutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "decimals",
+    "inputs": [],
+    "outputs": [
+      {
+        "type": "core::integer::u8"
+      }
+    ],
+    "state_mutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "totalSupply",
+    "inputs": [],
+    "outputs": [
+      {
+        "type": "core::integer::u256"
+      }
+    ],
+    "state_mutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "balanceOf",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "core::starknet::contract_address::ContractAddress"
+      }
+    ],
+    "outputs": [
+      {
+        "type": "core::integer::u256"
+      }
+    ],
+    "state_mutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "transfer",
+    "inputs": [
+      {
+        "name": "to",
+        "type": "core::starknet::contract_address::ContractAddress"
+      },
+      {
+        "name": "amount",
+        "type": "core::integer::u256"
+      }
+    ],
+    "outputs": [
+      {
+        "type": "core::bool"
+      }
+    ],
+    "state_mutability": "external"
+  },
+  {
+    "type": "function",
+    "name": "allowance",
+    "inputs": [
+      {
+        "name": "owner",
+        "type": "core::starknet::contract_address::ContractAddress"
+      },
+      {
+        "name": "spender",
+        "type": "core::starknet::contract_address::ContractAddress"
+      }
+    ],
+    "outputs": [
+      {
+        "type": "core::integer::u256"
+      }
+    ],
+    "state_mutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "approve",
+    "inputs": [
+      {
+        "name": "spender",
+        "type": "core::starknet::contract_address::ContractAddress"
+      },
+      {
+        "name": "amount",
+        "type": "core::integer::u256"
+      }
+    ],
+    "outputs": [
+      {
+        "type": "core::bool"
+      }
+    ],
+    "state_mutability": "external"
+  },
+  {
+    "type": "function",
+    "name": "transferFrom",
+    "inputs": [
+      {
+        "name": "from",
+        "type": "core::starknet::contract_address::ContractAddress"
+      },
+      {
+        "name": "to",
+        "type": "core::starknet::contract_address::ContractAddress"
+      },
+      {
+        "name": "amount",
+        "type": "core::integer::u256"
+      }
+    ],
+    "outputs": [
+      {
+        "type": "core::bool"
+      }
+    ],
+    "state_mutability": "external"
+  },
+  {
+    "type": "function",
+    "name": "mint_rawbtc",
+    "inputs": [
+      {
+        "name": "to",
+        "type": "core::starknet::contract_address::ContractAddress"
+      },
+      {
+        "name": "amount",
+        "type": "core::integer::u256"
+      },
+      {
+        "name": "deposit_id",
+        "type": "core::integer::u256"
+      }
+    ],
+    "outputs": [],
+    "state_mutability": "external"
+  },
+  {
+    "type": "function",
+    "name": "burn_rawbtc",
+    "inputs": [
+      {
+        "name": "amount",
+        "type": "core::integer::u256"
+      }
+    ],
+    "outputs": [],
+    "state_mutability": "external"
+  },
+  {
+    "type": "function",
+    "name": "update_pricing",
+    "inputs": [
+      {
+        "name": "btc_strk_rate",
+        "type": "core::integer::u256"
+      },
+      {
+        "name": "confidence_bps",
+        "type": "core::integer::u16"
+      }
+    ],
+    "outputs": [],
+    "state_mutability": "external"
+  },
+  {
+    "type": "function",
+    "name": "set_conversion_preference",
+    "inputs": [
+      {
+        "name": "auto_convert",
+        "type": "core::bool"
+      },
+      {
+        "name": "min_conversion_rate",
+        "type": "core::integer::u256"
+      },
+      {
+        "name": "max_slippage_bps",
+        "type": "core::integer::u16"
+      }
+    ],
+    "outputs": [],
+    "state_mutability": "external"
+  },
+  {
+    "type": "function",
+    "name": "convert_rawbtc_to_strk",
+    "inputs": [
+      {
+        "name": "amount_btc",
+        "type": "core::integer::u256"
+      }
+    ],
+    "outputs": [
+      {
+        "type": "core::integer::u256"
+      }
+    ],
+    "state_mutability": "external"
   },
   {
     "type": "event",
@@ -1168,234 +1396,6 @@ export const BRIDGE_ABI = [
         "kind": "nested"
       }
     ]
-  },
-  {
-    "type": "function",
-    "name": "name",
-    "inputs": [],
-    "outputs": [
-      {
-        "type": "core::felt252"
-      }
-    ],
-    "state_mutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "symbol",
-    "inputs": [],
-    "outputs": [
-      {
-        "type": "core::felt252"
-      }
-    ],
-    "state_mutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "decimals",
-    "inputs": [],
-    "outputs": [
-      {
-        "type": "core::integer::u8"
-      }
-    ],
-    "state_mutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "totalSupply",
-    "inputs": [],
-    "outputs": [
-      {
-        "type": "core::integer::u256"
-      }
-    ],
-    "state_mutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "balanceOf",
-    "inputs": [
-      {
-        "name": "account",
-        "type": "core::starknet::contract_address::ContractAddress"
-      }
-    ],
-    "outputs": [
-      {
-        "type": "core::integer::u256"
-      }
-    ],
-    "state_mutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "transfer",
-    "inputs": [
-      {
-        "name": "to",
-        "type": "core::starknet::contract_address::ContractAddress"
-      },
-      {
-        "name": "amount",
-        "type": "core::integer::u256"
-      }
-    ],
-    "outputs": [
-      {
-        "type": "core::bool"
-      }
-    ],
-    "state_mutability": "external"
-  },
-  {
-    "type": "function",
-    "name": "allowance",
-    "inputs": [
-      {
-        "name": "owner",
-        "type": "core::starknet::contract_address::ContractAddress"
-      },
-      {
-        "name": "spender",
-        "type": "core::starknet::contract_address::ContractAddress"
-      }
-    ],
-    "outputs": [
-      {
-        "type": "core::integer::u256"
-      }
-    ],
-    "state_mutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "approve",
-    "inputs": [
-      {
-        "name": "spender",
-        "type": "core::starknet::contract_address::ContractAddress"
-      },
-      {
-        "name": "amount",
-        "type": "core::integer::u256"
-      }
-    ],
-    "outputs": [
-      {
-        "type": "core::bool"
-      }
-    ],
-    "state_mutability": "external"
-  },
-  {
-    "type": "function",
-    "name": "transferFrom",
-    "inputs": [
-      {
-        "name": "from",
-        "type": "core::starknet::contract_address::ContractAddress"
-      },
-      {
-        "name": "to",
-        "type": "core::starknet::contract_address::ContractAddress"
-      },
-      {
-        "name": "amount",
-        "type": "core::integer::u256"
-      }
-    ],
-    "outputs": [
-      {
-        "type": "core::bool"
-      }
-    ],
-    "state_mutability": "external"
-  },
-  {
-    "type": "function",
-    "name": "mint_rawbtc",
-    "inputs": [
-      {
-        "name": "to",
-        "type": "core::starknet::contract_address::ContractAddress"
-      },
-      {
-        "name": "amount",
-        "type": "core::integer::u256"
-      },
-      {
-        "name": "deposit_id",
-        "type": "core::integer::u256"
-      }
-    ],
-    "outputs": [],
-    "state_mutability": "external"
-  },
-  {
-    "type": "function",
-    "name": "burn_rawbtc",
-    "inputs": [
-      {
-        "name": "amount",
-        "type": "core::integer::u256"
-      }
-    ],
-    "outputs": [],
-    "state_mutability": "external"
-  },
-  {
-    "type": "function",
-    "name": "update_pricing",
-    "inputs": [
-      {
-        "name": "btc_strk_rate",
-        "type": "core::integer::u256"
-      },
-      {
-        "name": "confidence_bps",
-        "type": "core::integer::u16"
-      }
-    ],
-    "outputs": [],
-    "state_mutability": "external"
-  },
-  {
-    "type": "function",
-    "name": "set_conversion_preference",
-    "inputs": [
-      {
-        "name": "auto_convert",
-        "type": "core::bool"
-      },
-      {
-        "name": "min_conversion_rate",
-        "type": "core::integer::u256"
-      },
-      {
-        "name": "max_slippage_bps",
-        "type": "core::integer::u16"
-      }
-    ],
-    "outputs": [],
-    "state_mutability": "external"
-  },
-  {
-    "type": "function",
-    "name": "convert_rawbtc_to_strk",
-    "inputs": [
-      {
-        "name": "amount_btc",
-        "type": "core::integer::u256"
-      }
-    ],
-    "outputs": [
-      {
-        "type": "core::integer::u256"
-      }
-    ],
-    "state_mutability": "external"
   }
 ]
 ];

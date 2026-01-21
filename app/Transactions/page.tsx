@@ -376,8 +376,8 @@ function TransactionsContent() {
         <nav>
           <ul>
             <li><a href="/bridge"><i className='fas fa-bridge'></i> Bridge</a></li>
-            <li><a href="/swap"><i className='fas fa-arrows-alt'></i> Swap</a></li>
-            <li><a href="/Lock-Unlock"><i className='fas fa-unlock'></i> Lock-Unlock</a></li>
+            {/* <li><a href="/swap"><i className='fas fa-arrows-alt'></i> Swap</a></li> */}
+            {/* <li><a href="/Lock-Unlock"><i className='fas fa-unlock'></i> Lock-Unlock</a></li> */}
             <li><a href="#" className="active"><i className='fas fa-history'></i> Transactions</a></li>
           </ul>
         </nav>
