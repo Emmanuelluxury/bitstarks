@@ -1,0 +1,19 @@
+.floating-dots-canvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+  background: transparent;
+  will-change: auto;
+  image-rendering: crisp-edges;
+}
+
+/* Ensure content renders above the dots */
+body {
+  position: relative;
+  z-index: 1;
+}
+

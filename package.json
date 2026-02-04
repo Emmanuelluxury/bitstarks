@@ -13,6 +13,8 @@
     "@sats-connect/core": "^0.0.12",
     "@starknet-io/get-starknet": "^4.0.8",
     "@tailwindcss/postcss": "^4.1.16",
+    "@uniswap/sdk-core": "^7.10.1",
+    "@uniswap/v3-sdk": "^3.27.0",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
     "lucide-react": "^0.548.0",
