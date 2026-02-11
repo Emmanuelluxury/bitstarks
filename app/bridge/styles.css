@@ -94,7 +94,7 @@ nav a.active {
 }
 
 .wallet-connect {
-  background: linear-gradient(90deg, #8b5cf6, #06b6d4);
+  background: var(--primary);
   color: white;
   border: none;
   padding: 12px 15px;

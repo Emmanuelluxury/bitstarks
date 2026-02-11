@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@atomiqlabs/sdk": "^8.1.8",
     "@metamask/detect-provider": "^2.0.0",
     "@sats-connect/core": "^0.0.12",
     "@starknet-io/get-starknet": "^4.0.8",
