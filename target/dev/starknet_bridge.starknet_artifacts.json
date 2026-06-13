@@ -1,1 +1,0 @@
-{"version":1,"contracts":[{"id":"580u6d9lmv6io","package_name":"starknet_bridge","contract_name":"Bridge","module_path":"starknet_bridge::contracts::Bridge::Bridge","artifacts":{"sierra":"starknet_bridge_Bridge.contract_class.json","casm":null}}]}

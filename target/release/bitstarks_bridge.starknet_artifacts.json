@@ -1,1 +1,0 @@
-{"version":1,"contracts":[{"id":"rpm7jp2us4t9c","package_name":"bitstarks_bridge","contract_name":"Bridge","module_path":"bitstarks_bridge::contracts::Bridge::Bridge","artifacts":{"sierra":"bitstarks_bridge_Bridge.contract_class.json","casm":"bitstarks_bridge_Bridge.compiled_contract_class.json"}}]}

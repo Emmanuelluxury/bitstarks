@@ -1,1 +1,0 @@
-/home/blackghost/Documents/BITSTARKS/BITSTARKS/rust-bitcoin-bridge/target/wasm32-unknown-unknown/release/bitcoin_starknet_bridge.wasm: /home/blackghost/Documents/BITSTARKS/BITSTARKS/rust-bitcoin-bridge/src/lib.rs
