@@ -69,6 +69,21 @@ app.post('/bridges/manual-release', async (req, res) => {
   }
 });
 
+// Manually mark a Starknet→BTC bridge as completed (called immediately after user's STRK tx confirms)
+app.post('/bridges/manual-release-btc', async (req, res) => {
+  const { starknetTxHash, amountStrk, toBtcAddress } = req.body;
+  if (!starknetTxHash || !amountStrk || !toBtcAddress) {
+    res.status(400).json({ error: 'Missing required fields: starknetTxHash, amountStrk, toBtcAddress' });
+    return;
+  }
+  try {
+    const record = await coordinator.manualReleaseBtc(starknetTxHash, parseFloat(amountStrk), toBtcAddress);
+    res.json(record);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Retry a failed bridge (re-queues it for minting)
 app.post('/bridges/:id/retry', (req, res) => {
   const record = coordinator.retry(req.params.id);

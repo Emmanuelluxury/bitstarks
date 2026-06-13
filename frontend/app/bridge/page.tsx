@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import WalletModal from '../components/WalletModal';
 import { useTransactions } from '../components/TransactionContext';
-import { initStarknet, bridgeBtcToToken, bridgeTokenToBtc } from '../utils/starknet';
+import { initStarknet, bridgeBtcToToken, depositStrkToBridgePool } from '../utils/starknet';
 import './styles.css';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:4000';
@@ -594,19 +594,17 @@ export default function BridgePage() {
 
       } else {
         // ── Starknet → BTC ──────────────────────────────────────────────────
-        txResult = await bridgeTokenToBtc(
-          '0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d',
+        // Step 1: transfer STRK from user wallet → bridge pool (0x003455ca...)
+        txResult = await depositStrkToBridgePool(
           fromAmount,
-          toAddress,
-          (parseFloat(fromAmount) * 0.998).toString(),
           { type: starknetWalletType!, address: starknetWalletAddress! }
         );
 
-        const starknetTxHash = txResult.transaction_hash || txResult.starknet_tx_hash;
+        const starknetTxHash = txResult.starknet_tx_hash;
         const bridgeId       = `bridge_${starknetTxHash?.slice(0, 16) ?? Date.now()}`;
-        const actualFee      = parseFloat(txResult.fee || '0');
-        const receivedAmount = parseFloat(txResult.amount_bridged || (parseFloat(fromAmount) - actualFee).toString());
+        const btcReleased    = (parseFloat(fromAmount) / 10000).toFixed(8);
 
+        // Step 2: record as pending immediately
         addTransaction({
           type: 'Bridge', typeIcon: 'fas fa-bridge', typeClass: 'type-bridge',
           fromAsset: 'STRK', fromAssetIcon: 'fab fa-ethereum',    fromAssetClass: 'asset-stark',
@@ -618,29 +616,43 @@ export default function BridgePage() {
           walletAddress: fromAddress,
           txHash: starknetTxHash ?? bridgeId,
           details: { direction, fromAddress, toAddress, sentAmount: fromAmount,
-                     receivedAmount: receivedAmount.toFixed(6), network: networkMode, starknetTxHash }
+                     receivedAmount: btcReleased, network: networkMode, starknetTxHash }
         });
 
-        try {
-          await axios.post(`${BACKEND_URL}/bridges`, {
-            id: bridgeId, direction, amount: fromAmount,
-            fromAddress, toAddress, starknetTxHash,
+        setBridgeSuccess('STRK sent to bridge pool! Releasing BTC to your Bitcoin wallet…');
+
+        // Step 3: backend sends BTC from hot wallet (tb1q5x90tfa7acp3rtn826q2ndmqexudpgcaygga6j) to user
+        const releaseResp = await axios.post(`${BACKEND_URL}/bridges/manual-release-btc`, {
+          starknetTxHash,
+          amountStrk: parseFloat(fromAmount),
+          toBtcAddress: toAddress,
+        });
+
+        if (releaseResp.data.status === 'completed') {
+          const btcTxid = releaseResp.data.btcTxHash ?? null;
+          updateTransaction(starknetTxHash ?? bridgeId, {
+            status: 'completed',
+            statusClass: 'status-completed',
+            details: { direction, fromAddress, toAddress, sentAmount: fromAmount,
+                       receivedAmount: btcReleased, network: networkMode, starknetTxHash, btcTxHash: btcTxid },
           });
-        } catch {
-          console.warn('Backend offline — bridge registered locally only');
+          setBridgeSuccess(`Bridge complete! ${btcReleased} BTC sent to your Bitcoin wallet.\n\nStarknet tx: ${starknetTxHash}${btcTxid ? `\nBitcoin tx: ${btcTxid}` : ''}`);
+          await refreshBalances();
+          setTransactionDetails({
+            direction, directionText, fromAddress, toAddress,
+            sentAmount: fromAmount, receivedAmount: btcReleased,
+            actualFee: '0', bitcoinFee, starknetFee,
+            totalFees: bitcoinFee + starknetFee,
+            estimatedTime, network: networkMode,
+            btcTxHash: btcTxid, starknetTxHash,
+            txHash: starknetTxHash ?? bridgeId, assetSent, assetReceived,
+          });
+          setShowTransactionPopup(true);
+        } else {
+          setBridgeError(`STRK sent but BTC release failed: ${releaseResp.data.error ?? 'unknown'}. Starknet txHash: ${starknetTxHash}`);
         }
 
-        setBridgeSuccess('STRK burn submitted. The relayer will release BTC to your address shortly.');
-        setTransactionDetails({
-          direction, directionText, fromAddress, toAddress,
-          sentAmount: fromAmount, receivedAmount: receivedAmount.toFixed(6),
-          actualFee: actualFee.toFixed(6), bitcoinFee, starknetFee,
-          totalFees: actualFee + bitcoinFee,
-          estimatedTime, network: networkMode,
-          btcTxHash: null, starknetTxHash,
-          txHash: starknetTxHash ?? bridgeId, assetSent, assetReceived,
-        });
-        setShowTransactionPopup(true);
+        setIsBridging(false);
       }
 
     } catch (error: any) {

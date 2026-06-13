@@ -1,6 +1,7 @@
 import { BitcoinWatcher } from '../bitcoin/watcher';
 import { StarknetListener } from '../starknet/listener';
 import { StarknetMinter } from '../starknet/minter';
+import { BtcSender } from '../bitcoin/sender';
 
 export type BridgeDirection = 'btc-to-stark' | 'stark-to-btc';
 export type BridgeStatus = 'watching' | 'confirmed' | 'minting' | 'minted' | 'releasing' | 'completed' | 'failed';
@@ -43,6 +44,7 @@ export class LiquidityCoordinator {
   private btcWatcher:    BitcoinWatcher;
   private starkListener: StarknetListener;
   private minter:        StarknetMinter;
+  private btcSender:     BtcSender;
   private timer: ReturnType<typeof setInterval> | null = null;
   // Track deposit IDs that have already been minted to prevent double-minting
   private mintedDepositIds = new Set<string>();
@@ -51,6 +53,7 @@ export class LiquidityCoordinator {
     this.btcWatcher    = new BitcoinWatcher(network);
     this.starkListener = new StarknetListener(network);
     this.minter        = new StarknetMinter(network);
+    this.btcSender     = new BtcSender();
   }
 
   onEvent(handler: EventHandler) {
@@ -211,6 +214,60 @@ export class LiquidityCoordinator {
     }
 
     await this.triggerMint(record);
+    return this.records.get(record.id)!;
+  }
+
+  /**
+   * Manually mark a Starknet→BTC bridge as completed immediately after the user's STRK tx confirms.
+   * Mirrors manualRelease() for the btc-to-stark direction.
+   */
+  async manualReleaseBtc(starknetTxHash: string, amountStrk: number, toBtcAddress: string): Promise<BridgeRecord> {
+    const existing = this.getAll().find(r => r.starknetTxHash === starknetTxHash);
+    let record: BridgeRecord;
+
+    if (existing) {
+      this.update(existing.id, {
+        toAddress: toBtcAddress,
+        amount: amountStrk.toString(),
+        status: 'releasing',
+        error: undefined,
+        consecutiveErrors: 0,
+      });
+      record = this.records.get(existing.id)!;
+    } else {
+      record = this.register({
+        id: `stark_${starknetTxHash.slice(0, 12)}`,
+        direction: 'stark-to-btc',
+        amount: amountStrk.toString(),
+        fromAddress: 'manual',
+        toAddress: toBtcAddress,
+        starknetTxHash,
+      });
+      this.update(record.id, { status: 'releasing' });
+      record = this.records.get(record.id)!;
+    }
+
+    this.emit({ type: 'btc_release_triggered', bridge: this.records.get(record.id)! });
+
+    // Send BTC from the bridge hot wallet to the user's Bitcoin address
+    if (!this.btcSender.isReady()) {
+      console.warn(`[Coordinator] BTC sender not configured — marking completed without on-chain BTC tx`);
+    } else {
+      try {
+        const btcTxid = await this.btcSender.sendBtc(toBtcAddress, amountStrk);
+        this.update(record.id, { btcTxHash: btcTxid });
+        console.log(`[Coordinator] ✅ BTC released: ${btcTxid} → ${toBtcAddress}`);
+      } catch (err: any) {
+        console.error(`[Coordinator] ❌ BTC send failed: ${err.message}`);
+        this.update(record.id, { status: 'failed', error: err.message });
+        this.emit({ type: 'error', bridge: this.records.get(record.id)!, error: err.message });
+        throw err;
+      }
+    }
+
+    this.update(record.id, { status: 'completed' });
+    this.emit({ type: 'completed', bridge: this.records.get(record.id)! });
+    console.log(`[Coordinator] ✅ Starknet→BTC bridge completed: ${record.id}`);
     return this.records.get(record.id)!;
   }
 

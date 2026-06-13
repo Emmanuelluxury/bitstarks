@@ -56,6 +56,9 @@ export const STARKNET_LIQUIDITY_POOL_ADDRESS = STARKNET_TO_BTC_ADDRESS;
 export const BRIDGE_CONTRACT_ADDRESS = STARKNET_TO_BTC_ADDRESS; // Legacy alias
 export const RAW_BTC_ADDRESS = STARKNET_TO_BTC_ADDRESS; // rawBTC is the bridge contract itself
 
+// Bridge pool — holds STRK (for BTC→Starknet releases) and receives STRK (for Starknet→BTC deposits)
+export const BRIDGE_POOL_ADDRESS = '0x003455ca2b0237c4dfc70091f221a6a374d0e186e32935f36c126536d1271a97';
+
 // BITCOIN TO STARKNET: Bitcoin tokens move to this address when bridging to StarkNet
 export const BTC_TO_STARKNET_ADDRESS = 'tb1q5x90tfa7acp3rtn826q2ndmqexudpgcaygga6j';
 export const BITCOIN_LIQUIDITY_POOL_ADDRESS = BTC_TO_STARKNET_ADDRESS;
@@ -2864,4 +2867,49 @@ export async function increaseDailyBridgeLimit(newLimit: string, contractAddress
     console.error('❌ Failed to increase daily bridge limit:', error);
     throw error;
   }
+}
+
+/**
+ * Starknet → BTC bridge deposit step.
+ * Transfers STRK from the user's wallet to the bridge pool contract.
+ * The backend watches for this and releases BTC from the hot wallet.
+ */
+export async function depositStrkToBridgePool(
+  amountIn: string,
+  starknetWallet: { type: string; address: string }
+): Promise<{ starknet_tx_hash: string; amount_deposited: string }> {
+  const amountNum   = parseFloat(amountIn);
+  const amountInWei = BigInt(Math.floor(amountNum * 1e18));
+  const { low, high } = splitU256(amountInWei);
+
+  const transferCall = {
+    contractAddress: STRK_TOKEN_ADDRESS,
+    entrypoint: 'transfer',
+    calldata: [BRIDGE_POOL_ADDRESS, low, high],
+  };
+
+  let txHash: string;
+
+  const walletType = starknetWallet.type.toLowerCase();
+
+  if ((walletType === 'ready' || walletType === 'argentx') && typeof window !== 'undefined' && (window as any).starknet_argentX) {
+    const argentX = (window as any).starknet_argentX;
+    if (!argentX.isConnected) await argentX.enable();
+    const tx = await argentX.account.execute([transferCall]);
+    txHash = tx.transaction_hash;
+  } else if (walletType === 'braavos' && typeof window !== 'undefined' && (window as any).starknet_braavos) {
+    const braavos = (window as any).starknet_braavos;
+    if (!braavos.isConnected) await braavos.enable();
+    const tx = await braavos.account.execute([transferCall]);
+    txHash = tx.transaction_hash;
+  } else if (account) {
+    // Fallback: use the account already initialised by initStarknet()
+    const tx = await account.execute([transferCall]);
+    txHash = (tx as any).transaction_hash;
+  } else {
+    throw new Error('No Starknet wallet connected. Please connect your Starknet wallet first.');
+  }
+
+  await waitForTransactionConfirmation(txHash);
+  return { starknet_tx_hash: txHash, amount_deposited: amountIn };
 }
