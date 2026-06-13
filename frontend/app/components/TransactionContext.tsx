@@ -13,6 +13,7 @@ export const useTransactions = () => {
     return {
       transactions: [],
       addTransaction: () => {},
+      updateTransaction: () => {},
       getTransactionsByWallet: () => [],
       clearTransactions: () => {},
     };
@@ -79,6 +80,12 @@ export const TransactionProvider: React.FC<TransactionProviderProps> = ({ childr
     return transactions.filter(tx => tx.walletAddress === walletAddress);
   };
 
+  const updateTransaction = (txHash: string, updates: Partial<Pick<Transaction, 'status' | 'statusClass' | 'details'>>) => {
+    setTransactions(prev => prev.map(tx =>
+      tx.txHash === txHash ? { ...tx, ...updates } : tx
+    ));
+  };
+
   const clearTransactions = () => {
     setTransactions([]);
   };
@@ -86,6 +93,7 @@ export const TransactionProvider: React.FC<TransactionProviderProps> = ({ childr
   const value: TransactionContextType = {
     transactions,
     addTransaction,
+    updateTransaction,
     getTransactionsByWallet,
     clearTransactions,
   };

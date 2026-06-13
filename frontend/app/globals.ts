@@ -28,6 +28,7 @@ export interface Transaction {
 export interface TransactionContextType {
   transactions: Transaction[];
   addTransaction: (transaction: Omit<Transaction, 'id' | 'date'>) => void;
+  updateTransaction: (txHash: string, updates: Partial<Pick<Transaction, 'status' | 'statusClass' | 'details'>>) => void;
   getTransactionsByWallet: (walletAddress: string) => Transaction[];
   clearTransactions: () => void;
 }

@@ -10,7 +10,7 @@ import './styles.css';
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:4000';
 
 export default function BridgePage() {
-    const { addTransaction, transactions: rawTransactions } = useTransactions();
+    const { addTransaction, updateTransaction, transactions: rawTransactions } = useTransactions();
     const transactions = Array.isArray(rawTransactions) ? rawTransactions : [];
     const [direction, setDirection] = useState<'btc-to-stark' | 'stark-to-btc'>('btc-to-stark');
     const [fromAmount, setFromAmount] = useState('');
@@ -567,6 +567,13 @@ export default function BridgePage() {
         const strkReleased = (parseFloat(fromAmount) * 10000).toFixed(0);
         if (releaseResp.data.status === 'completed' && releaseResp.data.mintTxHash) {
           const snTx = releaseResp.data.mintTxHash;
+          updateTransaction(btcTxHash, {
+            status: 'completed',
+            statusClass: 'status-completed',
+            details: { direction, fromAddress, toAddress, sentAmount: fromAmount,
+                       receivedAmount: strkReleased, network: networkMode,
+                       btcTxHash, starknetTxHash: snTx },
+          });
           setBridgeSuccess(`Bridge complete! ${strkReleased} STRK sent to your Starknet wallet.\n\nStarknet tx: ${snTx}`);
           await refreshBalances();
           setTransactionDetails({
