@@ -922,7 +922,7 @@ export default function BridgePage() {
 
             <div className="swap-button">
               <div className="swap-icon" onClick={handleSwap}>
-                <i className="fas fa-arrow-up-down"></i>
+                <i className="fas fa-arrows-up-down"></i>
               </div>
             </div>
 
