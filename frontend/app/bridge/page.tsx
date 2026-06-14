@@ -10,8 +10,7 @@ import './styles.css';
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:4000';
 
 export default function BridgePage() {
-    const { addTransaction, updateTransaction, transactions: rawTransactions } = useTransactions();
-    const transactions = Array.isArray(rawTransactions) ? rawTransactions : [];
+    const { addTransaction, updateTransaction } = useTransactions();
     const [direction, setDirection] = useState<'btc-to-stark' | 'stark-to-btc'>('btc-to-stark');
     const [fromAmount, setFromAmount] = useState('');
     const [toAmount, setToAmount] = useState('');
@@ -24,7 +23,6 @@ export default function BridgePage() {
     const [starknetWalletAddress, setStarknetWalletAddress] = useState<string | null>(null);
     const [bitcoinBalance, setBitcoinBalance] = useState<number | null>(null);
     const [starknetBalance, setStarknetBalance] = useState<number | null>(null);
-    const [rawBtcBalance, setRawBtcBalance] = useState<number | null>(null);
     const [bridgeFee, setBridgeFee] = useState<number>(0);
     const [bitcoinFee, setBitcoinFee] = useState<number>(0);
     const [starknetFee, setStarknetFee] = useState<number>(0);
@@ -303,7 +301,7 @@ export default function BridgePage() {
       // Fetch real Starknet balance when wallet connects
       if (address) {
         fetchStarknetBalance(address);
-        fetchRawBtcBalance(address);
+
       }
       // Auto-fill the toAddress field when Starknet wallet connects (for BTC→Starknet direction)
       if (direction === 'btc-to-stark' && address) {
@@ -342,28 +340,6 @@ export default function BridgePage() {
   };
 
   // Fetch rawBTC balance from the bridge contract (ERC20 balanceOf)
-  const fetchRawBtcBalance = async (address: string) => {
-    try {
-      const BRIDGE_CONTRACT = '0x01ebd9b12b7477bd358ab10fd9ed0f00b1f2cf4d6dfaeb8881567906af8c16d9';
-      // sn_keccak("balanceOf") = 0x2e4263afad30923c891518314c3c95dbe830a16874e8abc5777a9a20b54c76e
-      const resp = await axios.post('https://starknet-sepolia-rpc.publicnode.com', {
-        jsonrpc: '2.0', method: 'starknet_call',
-        params: [{
-          contract_address: BRIDGE_CONTRACT,
-          entry_point_selector: '0x2e4263afad30923c891518314c3c95dbe830a16874e8abc5777a9a20b54c76e',
-          calldata: [address],
-        }, 'latest'],
-        id: 1,
-      }, { timeout: 8000 });
-      const result = resp.data?.result;
-      if (result && result[0]) {
-        const sats = parseInt(result[0], 16);
-        setRawBtcBalance(sats / 1e8); // convert satoshis to BTC
-      }
-    } catch {
-      // silent — rawBTC balance is bonus info
-    }
-  };
 
   // Function to fetch real Starknet balance using multiple APIs for speed
   const fetchStarknetBalance = async (address: string) => {
@@ -487,7 +463,7 @@ export default function BridgePage() {
     }
     if (starknetWalletConnected && starknetWalletAddress) {
       await fetchStarknetBalance(starknetWalletAddress);
-      await fetchRawBtcBalance(starknetWalletAddress);
+
     }
   };
 
@@ -1052,38 +1028,6 @@ export default function BridgePage() {
           </button>
         </div>
 
-        <div className="transaction-history">
-          <div className="history-header">
-            <h2 className="history-title">Recent Transactions</h2>
-            <a href="/Transactions" className="view-all">View All</a>
-          </div>
-          <div className="transaction-list">
-            {(Array.isArray(transactions) ? transactions.slice(0, 4) : []).map((tx) => (
-              <div key={tx.id} className="transaction-item">
-                <div className="transaction-info">
-                  <div className={`transaction-icon ${tx.fromNetworkClass || 'network-btc'}`}>
-                    <i className={tx.fromNetworkIcon || 'fas fa-layer-group'}></i>
-                  </div>
-                  <div className="transaction-details">
-                    <h4>{tx.fromNetwork || 'Unknown'} to {tx.toNetwork || 'Unknown'}</h4>
-                    <p>{tx.date || 'Unknown date'}</p>
-                  </div>
-                </div>
-                <div className="transaction-amount">
-                  {tx.amount || '0'}
-                </div>
-                <div className={`status ${tx.statusClass ? tx.statusClass.split('-')[1] : 'pending'}`}>
-                  {tx.status || 'pending'}
-                </div>
-              </div>
-            ))}
-            {(!Array.isArray(transactions) || transactions.length === 0) && (
-              <div className="no-transactions">
-                <p>No transactions yet. Connect your wallet and make a bridge transaction to see your history here.</p>
-              </div>
-            )}
-          </div>
-          </div>
         </div>
 
       <footer>

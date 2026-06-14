@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { Transaction, TransactionContextType } from '../globals';
 
 const TransactionContext = createContext<TransactionContextType | undefined>(undefined);
@@ -8,8 +8,6 @@ const TransactionContext = createContext<TransactionContextType | undefined>(und
 export const useTransactions = () => {
   const context = useContext(TransactionContext);
   if (!context) {
-    console.error('useTransactions must be used within a TransactionProvider');
-    // Return a safe fallback to prevent crashes
     return {
       transactions: [],
       addTransaction: () => {},
@@ -27,57 +25,43 @@ interface TransactionProviderProps {
 
 export const TransactionProvider: React.FC<TransactionProviderProps> = ({ children }) => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  // Skip the very first run of the save effect (initial empty state) so we
+  // don't overwrite localStorage before the load effect has fired.
+  const isInitialMount = useRef(true);
 
-  // Load transactions from localStorage on mount
   useEffect(() => {
     try {
-      const storedTransactions = localStorage.getItem('bitstarks_transactions');
-      if (storedTransactions) {
-        const parsed = JSON.parse(storedTransactions);
+      const stored = localStorage.getItem('bitstarks_transactions');
+      if (stored) {
+        const parsed = JSON.parse(stored);
         if (Array.isArray(parsed)) {
-          // Validate that each transaction has required properties
-          const validTransactions = parsed.filter(tx =>
-            tx && typeof tx === 'object' && tx.id && tx.type
-          );
-          setTransactions(validTransactions);
-        } else {
-          console.warn('Stored transactions is not an array, resetting to empty');
-          setTransactions([]);
+          setTransactions(parsed.filter((tx: any) => tx?.id && tx?.type));
         }
       }
     } catch (error) {
-      console.error('Failed to parse stored transactions:', error);
-      setTransactions([]);
+      console.error('Failed to load transactions from localStorage:', error);
     }
   }, []);
 
-  // Save transactions to localStorage whenever transactions change
   useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
     localStorage.setItem('bitstarks_transactions', JSON.stringify(transactions));
   }, [transactions]);
 
   const addTransaction = (transaction: Omit<Transaction, 'id' | 'date'>) => {
-    // Validate required fields
-    if (!transaction || typeof transaction !== 'object') {
-      console.error('Invalid transaction object provided to addTransaction');
+    if (!transaction?.type || !transaction?.amount) {
+      console.error('addTransaction: missing required fields', transaction);
       return;
     }
-
-    if (!transaction.type || !transaction.amount || !transaction.walletAddress) {
-      console.error('Transaction missing required fields:', transaction);
-      return;
-    }
-
     const newTransaction: Transaction = {
       ...transaction,
-      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+      id: Date.now().toString() + Math.random().toString(36).slice(2, 11),
       date: new Date().toLocaleString(),
     };
     setTransactions(prev => [newTransaction, ...prev]);
-  };
-
-  const getTransactionsByWallet = (walletAddress: string): Transaction[] => {
-    return transactions.filter(tx => tx.walletAddress === walletAddress);
   };
 
   const updateTransaction = (txHash: string, updates: Partial<Pick<Transaction, 'status' | 'statusClass' | 'details'>>) => {
@@ -86,20 +70,16 @@ export const TransactionProvider: React.FC<TransactionProviderProps> = ({ childr
     ));
   };
 
+  const getTransactionsByWallet = (walletAddress: string): Transaction[] => {
+    return transactions.filter(tx => tx.walletAddress === walletAddress);
+  };
+
   const clearTransactions = () => {
     setTransactions([]);
   };
 
-  const value: TransactionContextType = {
-    transactions,
-    addTransaction,
-    updateTransaction,
-    getTransactionsByWallet,
-    clearTransactions,
-  };
-
   return (
-    <TransactionContext.Provider value={value}>
+    <TransactionContext.Provider value={{ transactions, addTransaction, updateTransaction, getTransactionsByWallet, clearTransactions }}>
       {children}
     </TransactionContext.Provider>
   );

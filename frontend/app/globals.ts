@@ -20,7 +20,7 @@ export interface Transaction {
   date: string;
   status: 'completed' | 'pending' | 'failed';
   statusClass: string;
-  walletAddress: string;
+  walletAddress?: string;
   txHash?: string;
   details?: any;
 }

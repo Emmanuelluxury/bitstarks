@@ -120,10 +120,14 @@ nav a.active {
 }
 
 .main-content {
-  display: grid;
-  grid-template-columns: 1fr 400px;
-  gap: 30px;
+  display: flex;
+  justify-content: center;
   margin-bottom: 40px;
+}
+
+.main-content .bridge-card {
+  width: 100%;
+  max-width: 680px;
 }
 
 .bridge-card {
@@ -1857,10 +1861,6 @@ footer {
 }
 
 @media (max-width: 768px) {
-  .main-content {
-    grid-template-columns: 1fr;
-  }
-
   .info-cards {
     grid-template-columns: 1fr;
   }
