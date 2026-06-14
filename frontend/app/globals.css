@@ -125,7 +125,7 @@ nav {
 }
 
 .connect-wallet {
-  background: var(--gradient);
+  background: var(--primary);
   color: white;
   border: none;
   padding: 12px 24px;
@@ -140,6 +140,7 @@ nav {
 }
 
 .connect-wallet:hover {
+  background: var(--primary-dark);
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(124, 58, 237, 0.4);
 }
@@ -241,9 +242,13 @@ nav {
 }
 
 .btn-primary {
-  background: var(--gradient);
+  background: var(--primary);
   color: white;
-  box-shadow: 0 10px 20px rgba(67, 97, 238, 0.3);
+  box-shadow: 0 10px 20px rgba(124, 58, 237, 0.3);
+}
+
+.btn-primary:hover {
+  background: var(--primary-dark);
 }
 
 .btn-secondary {
@@ -393,7 +398,7 @@ nav {
 /* Features Section */
 .features {
   padding: 100px 0;
-  background: rgba(15, 23, 42, 0.5);
+  background: transparent;
 }
 
 .section-header {
@@ -482,7 +487,7 @@ nav {
 /* How It Works */
 .how-it-works {
   padding: 100px 0;
-  background: rgba(15, 23, 42, 0.3);
+  background: transparent;
   position: relative;
 }
 
@@ -494,14 +499,7 @@ nav {
 }
 
 .steps::before {
-  content: '';
-  position: absolute;
-  top: 40px;
-  left: 10%;
-  right: 10%;
-  height: 2px;
-  background: linear-gradient(90deg, var(--primary), var(--secondary));
-  z-index: 1;
+  display: none;
 }
 
 .step {
@@ -548,7 +546,7 @@ nav {
 /* Bridge Interface */
 .bridge-interface {
   padding: 100px 0;
-  background: rgba(15, 23, 42, 0.5);
+  background: transparent;
 }
 
 .bridge-container {
@@ -667,7 +665,7 @@ nav {
 /* Stats Section */
 .stats {
   padding: 80px 0;
-  background: rgba(15, 23, 42, 0.3);
+  background: transparent;
 }
 
 .stats-grid {
@@ -878,19 +876,31 @@ footer {
   .nav-links {
     display: none;
   }
-  
+
   .mobile-menu-btn {
     display: block;
   }
-  
+
+  /* Hide wallet button from header on mobile — accessible via slide-out menu */
+  nav > div .connect-wallet,
+  nav > div .disconnect-wallet {
+    display: none;
+  }
+
+  /* Keep Live badge visible but compact */
+  .live-status {
+    font-size: 11px;
+    padding: 3px 8px;
+  }
+
   .hero-title {
     font-size: 2.8rem;
   }
-  
+
   .stats-grid {
     grid-template-columns: 1fr 1fr;
   }
-  
+
   .feature-card, .stat-card {
     padding: 20px;
   }
@@ -963,6 +973,22 @@ footer {
 .mobile-nav-links a:hover {
   color: white;
   padding-left: 10px;
+}
+
+/* Wallet action link in mobile menu looks like a button */
+.mobile-nav-links li:last-child a {
+  background: var(--primary);
+  color: white;
+  border-radius: 8px;
+  padding: 12px 20px;
+  text-align: center;
+  font-weight: 600;
+  margin-top: 10px;
+}
+
+.mobile-nav-links li:last-child a:hover {
+  background: var(--primary-dark);
+  padding-left: 20px;
 }
 
 .close-menu {
@@ -1156,7 +1182,7 @@ footer {
 
 .testimonials {
   padding: 100px 0;
-  background: rgba(15, 23, 42, 0.3);
+  background: transparent;
 }
 
 .testimonial-grid {
@@ -1212,7 +1238,7 @@ footer {
 
 .faq {
   padding: 100px 0;
-  background: rgba(15, 23, 42, 0.5);
+  background: transparent;
 }
 
 .faq-grid {

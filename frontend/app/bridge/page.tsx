@@ -694,11 +694,13 @@ export default function BridgePage() {
         </nav>
         <button className={`wallet-connect ${bitcoinWalletConnected && starknetWalletConnected ? 'connected' : ''}`} onClick={handleConnectWallet}>
           <i className={`fas ${bitcoinWalletConnected && starknetWalletConnected ? 'fa-check' : 'fa-wallet'}`}></i>
-          {bitcoinWalletConnected && starknetWalletConnected
-            ? 'Wallets Connected'
-            : bitcoinWalletConnected || starknetWalletConnected
-            ? 'Connect Second Wallet'
-            : 'Connect Wallets'}
+          <span className="wallet-btn-text">
+            {bitcoinWalletConnected && starknetWalletConnected
+              ? 'Wallets Connected'
+              : bitcoinWalletConnected || starknetWalletConnected
+              ? 'Connect Second Wallet'
+              : 'Connect Wallets'}
+          </span>
         </button>
       </header>
 

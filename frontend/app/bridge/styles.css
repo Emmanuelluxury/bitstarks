@@ -1865,7 +1865,56 @@ footer {
     grid-template-columns: 1fr;
   }
 
+  /* Single-row mobile header */
+  header {
+    flex-wrap: nowrap;
+    align-items: center;
+    padding: 12px 0;
+    gap: 0;
+  }
+
+  /* Hide logo text, keep only the icon */
+  .logo span {
+    display: none;
+  }
+
+  .logo-icon {
+    width: 34px;
+    height: 34px;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+
+  .bitstarks-logo {
+    width: 34px;
+    height: 34px;
+  }
+
+  /* Nav links take the remaining space, centered */
+  nav {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+  }
+
   nav ul {
+    display: flex;
+    gap: 20px;
+    padding: 0;
+  }
+
+  nav a {
+    font-size: 13px;
+    white-space: nowrap;
+  }
+
+  /* Wallet button — icon only on mobile */
+  .wallet-connect {
+    padding: 9px 12px;
+    flex-shrink: 0;
+  }
+
+  .wallet-btn-text {
     display: none;
   }
 
