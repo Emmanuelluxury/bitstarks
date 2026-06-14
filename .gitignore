@@ -30,6 +30,12 @@ yarn-error.log*
 
 # local env files
 .env*.local
+.env
+
+# backend build output and secrets
+backend/dist/
+backend/.env
+backend/node_modules/
 
 # vercel
 .vercel

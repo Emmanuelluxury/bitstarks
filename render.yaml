@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: bitstarks-backend
+    runtime: node
+    rootDir: backend
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NETWORK
+        value: testnet
+      - key: PORT
+        value: 4000
+      - key: ADMIN_STARKNET_ADDRESS
+        sync: false
+      - key: ADMIN_PRIVATE_KEY
+        sync: false
+      - key: BRIDGE_BTC_PRIVATE_KEY
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
