@@ -645,7 +645,7 @@ nav {
 
 .bridge-button {
   grid-column: 2;
-  background: var(--gradient);
+  background: var(--primary);
   color: white;
   border: none;
   padding: 16px 32px;
@@ -658,6 +658,7 @@ nav {
 }
 
 .bridge-button:hover {
+  background: var(--primary-dark);
   transform: translateY(-2px);
   box-shadow: 0 8px 20px rgba(124, 58, 237, 0.4);
 }
