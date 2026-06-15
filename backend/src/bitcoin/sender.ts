@@ -18,6 +18,7 @@ const FEE_SATS = 1_500;
 const TESTNET4_APIS = [
   'https://mempool.emzy.de/testnet4/api',
   'https://mempool.space/testnet4/api',
+  'https://mempool.ninja/testnet4/api',
 ];
 
 export class BtcSender {
@@ -43,7 +44,7 @@ export class BtcSender {
   private async apiGet(path: string): Promise<any> {
     for (const base of TESTNET4_APIS) {
       try {
-        const r = await axios.get(`${base}${path}`, { timeout: 10_000 });
+        const r = await axios.get(`${base}${path}`, { timeout: 5_000 });
         return r.data;
       } catch {
         continue;
@@ -57,7 +58,7 @@ export class BtcSender {
       try {
         const r = await axios.post(`${base}${path}`, body, {
           headers: { 'Content-Type': 'text/plain' },
-          timeout: 15_000,
+          timeout: 8_000,
         });
         return r.data as string;
       } catch {
