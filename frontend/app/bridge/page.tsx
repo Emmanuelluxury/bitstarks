@@ -636,13 +636,19 @@ export default function BridgePage() {
       let errorMessage = 'Bridge transaction failed';
       let isUserCancel = false;
 
-      if (error.message?.includes('cancel') || error.message?.includes('cancelled by user')) {
+      const backendMsg = error.response?.data?.error ?? '';
+      const rawMsg = backendMsg || error.message || '';
+
+      if (rawMsg.includes('cancel') || rawMsg.includes('cancelled by user')) {
         errorMessage = 'Transaction cancelled.';
         isUserCancel = true;
-      } else if (error.message?.includes('rejected')) {
+      } else if (rawMsg.includes('rejected')) {
         errorMessage = 'Transaction rejected by wallet.';
-      } else if (error.message?.includes('insufficient')) {
-        errorMessage = 'Insufficient balance for this transaction.';
+      } else if (rawMsg.includes('insufficient') || rawMsg.includes('not enough') || rawMsg.includes('balance')) {
+        errorMessage = rawMsg;
+        isUserCancel = true;
+      } else if (backendMsg) {
+        errorMessage = backendMsg;
       } else if (error.message) {
         errorMessage = error.message;
       }
