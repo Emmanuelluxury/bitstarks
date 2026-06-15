@@ -1,27 +1,16 @@
-import { Account, RpcProvider, uint256, num } from 'starknet';
+import { Account, RpcProvider, uint256 } from 'starknet';
 
 export const BRIDGE_CONTRACT_ADDRESS = '0x003455ca2b0237c4dfc70091f221a6a374d0e186e32935f36c126536d1271a97';
 
+// Alchemy first (supports all modern Starknet RPC features including l1_data_gas)
 const RPC_URLS = [
+  'https://starknet-sepolia.g.alchemy.com/starknet/version/rpc/v0_10/TAgtRwyTg9fs9UKokYpxAJDdfI_BNEid',
   'https://free-rpc.nethermind.io/sepolia-juno/',
   'https://starknet-sepolia.public.blastapi.io',
-  'https://starknet-sepolia-rpc.publicnode.com',
 ];
 
 // 1 satoshi = 10^14 STRK wei  (10,000 STRK per BTC)
 const STRK_WEI_PER_SAT = BigInt('100000000000000');
-
-// Resource bounds for V3 tx — generous testnet limits, matches what sncast used
-const RESOURCE_BOUNDS = {
-  l1_gas: {
-    max_amount: num.toHex(50_000),
-    max_price_per_unit: num.toHex(2_000_000_000_000_000n), // 2e15 fri/gas
-  },
-  l2_gas: {
-    max_amount: num.toHex(5_000_000),
-    max_price_per_unit: num.toHex(100_000_000_000n), // 1e11 fri/gas
-  },
-};
 
 export class StarknetMinter {
   private adminAddress: string = '';
@@ -67,27 +56,23 @@ export class StarknetMinter {
 
     for (const rpcUrl of RPC_URLS) {
       try {
-        // blockIdentifier:'latest' makes ALL internal calls (getNonce, getClassAt, estimateFee)
-        // use 'latest' instead of 'pending' — fixes "unknown block tag 'pending'" errors
-        const provider = new RpcProvider({ nodeUrl: rpcUrl, blockIdentifier: 'latest' });
+        const provider = new RpcProvider({ nodeUrl: rpcUrl });
 
-        // Fetch nonce explicitly with 'latest' (belt-and-suspenders)
-        const nonce = await provider.getNonceForAddress(this.adminAddress, 'latest');
-        console.log(`[Minter] Using RPC: ${rpcUrl}  nonce: ${nonce}`);
+        // starknet.js v10: options object constructor, auto fee estimation with l1_data_gas
+        const account = new Account({
+          provider,
+          address: this.adminAddress,
+          signer: this.privateKey,
+          cairoVersion: '1',
+        });
 
-        // cairoVersion '1' → skip starknet_getClassAt call
-        // resourceBounds   → V3 tx with STRK fees, skip starknet_estimateFee call
-        // nonce explicit   → skip starknet_getNonce call
-        // Result: zero 'pending' block calls
-        const account = new Account(provider, this.adminAddress, this.privateKey, '1');
-        const { transaction_hash } = await account.execute(
-          {
-            contractAddress: BRIDGE_CONTRACT_ADDRESS,
-            entrypoint: 'release_strk',
-            calldata: [to, strkLow, strkHigh, txHashFelt],
-          },
-          { nonce, resourceBounds: RESOURCE_BOUNDS },
-        );
+        console.log(`[Minter] Using RPC: ${rpcUrl}`);
+
+        const { transaction_hash } = await account.execute({
+          contractAddress: BRIDGE_CONTRACT_ADDRESS,
+          entrypoint: 'release_strk',
+          calldata: [to, strkLow, strkHigh, txHashFelt],
+        });
 
         console.log(`[Minter] ✅ release_strk submitted: ${transaction_hash}`);
         await provider.waitForTransaction(transaction_hash);
@@ -96,7 +81,7 @@ export class StarknetMinter {
         return transaction_hash;
       } catch (err: any) {
         lastErr = err;
-        console.warn(`[Minter] RPC ${rpcUrl} failed: ${err.message}`);
+        console.warn(`[Minter] RPC ${rpcUrl} failed: ${err.message?.slice(0, 120)}`);
       }
     }
 
