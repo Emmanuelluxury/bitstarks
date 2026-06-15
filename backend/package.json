@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "BitStarks bridge relayer and liquidity coordinator",
   "main": "dist/index.js",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
     "dev": "ts-node src/index.ts",
     "build": "tsc",
