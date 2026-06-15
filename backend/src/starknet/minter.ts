@@ -66,13 +66,18 @@ export class StarknetMinter {
         const nonce = await provider.getNonceForAddress(this.adminAddress, 'latest');
         console.log(`[Minter] Using RPC: ${rpcUrl}  nonce: ${nonce}`);
 
-        const { transaction_hash } = await account.execute(
+        // Pass cairoVersion '1' → skips starknet_getClassAt(pending)
+        // Pass nonce explicitly  → skips starknet_getNonce(pending)
+        // Pass maxFee explicitly → skips starknet_estimateFee(pending)
+        // This avoids ALL "unknown block tag 'pending'" errors from the RPC
+        const accountV1 = new Account(provider, this.adminAddress, this.privateKey, '1');
+        const { transaction_hash } = await accountV1.execute(
           {
             contractAddress: BRIDGE_CONTRACT_ADDRESS,
             entrypoint: 'release_strk',
             calldata: [to, strkLow, strkHigh, txHashFelt],
           },
-          { nonce },
+          { nonce, maxFee: '2000000000000000' }, // 0.002 ETH — no estimation needed
         );
 
         console.log(`[Minter] ✅ release_strk submitted: ${transaction_hash}`);
