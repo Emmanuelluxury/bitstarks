@@ -6,22 +6,7 @@ import { LiquidityCoordinator } from './coordinator/liquidityCoordinator';
 dotenv.config();
 
 const app = express();
-
-const allowedOrigins = [
-  'http://localhost:3000',
-  'http://localhost:3001',
-  process.env.FRONTEND_URL,
-].filter(Boolean) as string[];
-
-app.use(cors({
-  origin: (origin, callback) => {
-    // Allow requests with no origin (mobile apps, curl, Postman)
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.some(o => origin.startsWith(o))) return callback(null, true);
-    callback(null, true); // open during development — tighten once domain is known
-  },
-  credentials: true,
-}));
+app.use(cors());
 app.use(express.json());
 
 const network = (process.env.NETWORK as 'mainnet' | 'testnet') ?? 'testnet';
