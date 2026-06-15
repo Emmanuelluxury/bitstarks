@@ -41,6 +41,9 @@ const bitcoin = __importStar(require("bitcoinjs-lib"));
 const ecc = __importStar(require("tiny-secp256k1"));
 const ecpair_1 = require("ecpair");
 const axios_1 = __importDefault(require("axios"));
+const https_1 = __importDefault(require("https"));
+// Force IPv4 — mempool APIs time out when Node.js tries IPv6 first
+const AGENT = new https_1.default.Agent({ family: 4 });
 const ECPair = (0, ecpair_1.ECPairFactory)(ecc);
 // Use testnet network parameters (compatible with both testnet3 and testnet4)
 const NETWORK = bitcoin.networks.testnet;
@@ -73,7 +76,7 @@ class BtcSender {
     async apiGet(path) {
         for (const base of TESTNET4_APIS) {
             try {
-                const r = await axios_1.default.get(`${base}${path}`, { timeout: 5000 });
+                const r = await axios_1.default.get(`${base}${path}`, { timeout: 5000, httpsAgent: AGENT });
                 return r.data;
             }
             catch {
@@ -88,6 +91,7 @@ class BtcSender {
                 const r = await axios_1.default.post(`${base}${path}`, body, {
                     headers: { 'Content-Type': 'text/plain' },
                     timeout: 8000,
+                    httpsAgent: AGENT,
                 });
                 return r.data;
             }

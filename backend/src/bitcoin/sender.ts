@@ -2,6 +2,10 @@ import * as bitcoin from 'bitcoinjs-lib';
 import * as ecc from 'tiny-secp256k1';
 import { ECPairFactory } from 'ecpair';
 import axios from 'axios';
+import https from 'https';
+
+// Force IPv4 — mempool APIs time out when Node.js tries IPv6 first
+const AGENT = new https.Agent({ family: 4 });
 
 const ECPair = ECPairFactory(ecc);
 
@@ -44,7 +48,7 @@ export class BtcSender {
   private async apiGet(path: string): Promise<any> {
     for (const base of TESTNET4_APIS) {
       try {
-        const r = await axios.get(`${base}${path}`, { timeout: 5_000 });
+        const r = await axios.get(`${base}${path}`, { timeout: 5_000, httpsAgent: AGENT });
         return r.data;
       } catch {
         continue;
@@ -59,6 +63,7 @@ export class BtcSender {
         const r = await axios.post(`${base}${path}`, body, {
           headers: { 'Content-Type': 'text/plain' },
           timeout: 8_000,
+          httpsAgent: AGENT,
         });
         return r.data as string;
       } catch {
