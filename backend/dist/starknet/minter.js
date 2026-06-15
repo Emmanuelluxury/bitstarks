@@ -2,21 +2,26 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.StarknetMinter = exports.BRIDGE_CONTRACT_ADDRESS = void 0;
 const starknet_1 = require("starknet");
-// Bridge pool contract — holds STRK and releases it to users via release_strk()
 exports.BRIDGE_CONTRACT_ADDRESS = '0x003455ca2b0237c4dfc70091f221a6a374d0e186e32935f36c126536d1271a97';
-const RPC_URL = 'https://starknet-sepolia-rpc.publicnode.com';
-// 1 satoshi = 10^14 STRK wei (10,000 STRK per BTC)
+// Tried in order — first one that responds to getNonce wins
+const RPC_URLS = [
+    'https://free-rpc.nethermind.io/sepolia-juno/',
+    'https://starknet-sepolia.public.blastapi.io',
+    'https://starknet-sepolia-rpc.publicnode.com',
+];
+// 1 satoshi = 10^14 STRK wei  (10,000 STRK per BTC)
 const STRK_WEI_PER_SAT = BigInt('100000000000000');
 class StarknetMinter {
     constructor(_network) {
-        this.account = null;
+        this.adminAddress = '';
+        this.privateKey = '';
         this.ready = false;
-        this.provider = new starknet_1.RpcProvider({ nodeUrl: RPC_URL });
-        const adminAddress = process.env.ADMIN_STARKNET_ADDRESS;
-        const privateKey = process.env.ADMIN_PRIVATE_KEY;
+        const adminAddress = process.env.ADMIN_STARKNET_ADDRESS ?? '';
+        const privateKey = process.env.ADMIN_PRIVATE_KEY ?? '';
         const isPlaceholder = (v) => !v || v.includes('YOUR_') || v.length < 10;
         if (adminAddress && privateKey && !isPlaceholder(adminAddress) && !isPlaceholder(privateKey)) {
-            this.account = new starknet_1.Account(this.provider, adminAddress, privateKey);
+            this.adminAddress = adminAddress;
+            this.privateKey = privateKey;
             this.ready = true;
             console.log('[Minter] Ready — admin address:', adminAddress);
             console.log('[Minter] Bridge pool:', exports.BRIDGE_CONTRACT_ADDRESS);
@@ -25,32 +30,45 @@ class StarknetMinter {
             console.warn('[Minter] ⚠️  Real admin keys not set in .env — minting is disabled');
         }
     }
-    isReady() {
-        return this.ready;
-    }
+    isReady() { return this.ready; }
     async mintRawBtc(to, amountBtc, depositId) {
-        if (!this.ready || !this.account) {
+        if (!this.ready) {
             throw new Error('Minter not initialised — set ADMIN_STARKNET_ADDRESS and ADMIN_PRIVATE_KEY in .env');
         }
         const amountSatoshis = BigInt(Math.round(amountBtc * 1e8));
         const strkWei = amountSatoshis * STRK_WEI_PER_SAT;
         const strkAmount = Number(strkWei) / 1e18;
-        // u256 split into low/high 128-bit chunks for Cairo calldata
+        // u256 → low/high 128-bit chunks for Cairo calldata
         const { low: strkLow, high: strkHigh } = starknet_1.uint256.bnToUint256(strkWei);
-        // felt252 max is ~2^251; truncate 32-byte BTC hash to 31 bytes so it fits
+        // felt252 max ~2^251 — truncate 32-byte BTC txid to 31 bytes
         const txHashFelt = '0x' + depositId.replace(/^0x/, '').slice(0, 62).padStart(2, '0');
         console.log(`[Minter] deposit: ${depositId}`);
         console.log(`[Minter] Releasing ${strkAmount.toFixed(4)} STRK from pool → ${to}`);
         console.log(`[Minter] (${amountSatoshis} sats × rate = ${strkWei} wei)`);
-        const { transaction_hash } = await this.account.execute({
-            contractAddress: exports.BRIDGE_CONTRACT_ADDRESS,
-            entrypoint: 'release_strk',
-            calldata: [to, strkLow, strkHigh, txHashFelt],
-        });
-        console.log(`[Minter] ✅ release_strk submitted: ${transaction_hash}`);
-        await this.provider.waitForTransaction(transaction_hash);
-        console.log(`[Minter] ✅ STRK released from pool: ${transaction_hash} — ${strkAmount.toFixed(4)} STRK → ${to}`);
-        return transaction_hash;
+        // Try each RPC in order — use 'latest' for nonce to avoid providers that reject 'pending'
+        let lastErr = new Error('No RPC configured');
+        for (const rpcUrl of RPC_URLS) {
+            try {
+                const provider = new starknet_1.RpcProvider({ nodeUrl: rpcUrl });
+                const account = new starknet_1.Account(provider, this.adminAddress, this.privateKey);
+                const nonce = await provider.getNonceForAddress(this.adminAddress, 'latest');
+                console.log(`[Minter] Using RPC: ${rpcUrl}  nonce: ${nonce}`);
+                const { transaction_hash } = await account.execute({
+                    contractAddress: exports.BRIDGE_CONTRACT_ADDRESS,
+                    entrypoint: 'release_strk',
+                    calldata: [to, strkLow, strkHigh, txHashFelt],
+                }, { nonce });
+                console.log(`[Minter] ✅ release_strk submitted: ${transaction_hash}`);
+                await provider.waitForTransaction(transaction_hash);
+                console.log(`[Minter] ✅ STRK released: ${transaction_hash} — ${strkAmount.toFixed(4)} STRK → ${to}`);
+                return transaction_hash;
+            }
+            catch (err) {
+                lastErr = err;
+                console.warn(`[Minter] RPC ${rpcUrl} failed: ${err.message}`);
+            }
+        }
+        throw new Error(`All Starknet RPCs failed. Last error: ${lastErr.message}`);
     }
 }
 exports.StarknetMinter = StarknetMinter;
